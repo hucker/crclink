@@ -38,9 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     encode_text = subparsers.add_parser("encode-text", help="Encode a text frame")
     encode_text.add_argument("body", help="Text body to encode")
     encode_text.add_argument(
-        "--with-0x-prefix",
-        action="store_true",
-        help="Emit CRC suffix as 0xHHHH instead of HHHH",
+        "--prefix",
+        default="",
+        help="Text before the CRC suffix; use 0x for 0xHHHH (default: bare HHHH)",
     )
 
     decode_text = subparsers.add_parser("decode-text", help="Decode and verify a text frame")
@@ -158,7 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.command == "encode-text":
-            print(encode_text_frame(args.body, with_0x_prefix=args.with_0x_prefix))
+            print(encode_text_frame(args.body, prefix=args.prefix))
             return 0
 
         if args.command == "decode-text":

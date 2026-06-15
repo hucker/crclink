@@ -74,10 +74,10 @@ class TestCliText:
         assert output.startswith("PING "), "output should keep original body prefix"
         assert len(output.split(" ")[-1]) == 4, "default suffix should be 4 hex chars"
 
-    def test_encode_text_with_0x_prefix(self, capsys) -> None:
-        """encode-text with --with-0x-prefix should emit prefixed suffix."""
+    def test_encode_text_with_prefix(self, capsys) -> None:
+        """encode-text with --prefix 0x should emit a prefixed suffix."""
         # Arrange
-        argv = ["encode-text", "PING", "--with-0x-prefix"]
+        argv = ["encode-text", "PING", "--prefix", "0x"]
 
         # Act
         exit_code = main(argv)

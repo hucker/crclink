@@ -21,7 +21,7 @@ Installing crclink puts a `crclink` command on your path. It encodes and decodes
 # Encode (prints the framed line)
 crclink encode-json '{"t":1234,"v":42}'        # -> {"t":1234,"v":42,"crc":"1352"}
 crclink encode-text "PING"                       # -> PING e0e7
-crclink encode-text "PING" --with-0x-prefix      # -> PING 0xe0e7
+crclink encode-text "PING" --prefix 0x           # -> PING 0xe0e7
 
 # Decode and verify one frame (prints a JSON result, exit 1 on a bad CRC)
 crclink decode-json '{"t":1234,"v":42,"crc":"1352"}'

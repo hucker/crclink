@@ -125,7 +125,7 @@ class TestTextFraming:
         body = "SET mode=2"
 
         # Act
-        line = encode_text_frame(body, with_0x_prefix=True)
+        line = encode_text_frame(body, prefix="0x")
         decoded = decode_text_frame(line)
 
         # Assert

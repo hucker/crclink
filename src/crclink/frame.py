@@ -144,12 +144,14 @@ def decode_json_frame(frame: bytes | str) -> DecodedJsonFrame:
     )
 
 
-def encode_text_frame(body: str, with_0x_prefix: bool = False) -> str:
+def encode_text_frame(body: str, prefix: str = "") -> str:
     """Encode a text line with trailing CRC suffix.
 
     Args:
         body: Message body.
-        with_0x_prefix: If true, append CRC as 0xHHHH; otherwise HHHH.
+        prefix: Text placed before the 4-hex CRC. The default "" gives a bare
+            HHHH suffix; "0x" gives 0xHHHH. Only "" and "0x" round-trip through
+            decode_text_frame.
 
     Returns:
         Encoded line text without trailing newline.
@@ -160,12 +162,14 @@ def encode_text_frame(body: str, with_0x_prefix: bool = False) -> str:
     Examples:
         >>> encode_text_frame("PING")
         'PING e0e7'
+        >>> encode_text_frame("PING", prefix="0x")
+        'PING 0xe0e7'
     """
     if body.endswith((" ", "\t")):
         raise FrameFormatError("text body must not end with whitespace")
 
     crc = _crc(body.encode("utf-8"))
-    suffix = f"0x{crc:04x}" if with_0x_prefix else f"{crc:04x}"
+    suffix = f"{prefix}{crc:04x}"
     return f"{body} {suffix}"
 
 
