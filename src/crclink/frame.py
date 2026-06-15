@@ -15,7 +15,7 @@ from .errors import CrcMismatchError, FrameFormatError
 #: parameters; crclink only names the algorithm and asks the engine.
 _ALGORITHM = "crc16-xmodem"
 
-_TEXT_SUFFIX_RE = re.compile(r"^(?P<body>.*) (?P<crc>(?:0x)?[0-9a-fA-F]{4})$")
+_TEXT_SUFFIX_RE = re.compile(r"^(?P<body>.*) (?P<crc>(?:0[xX])?[0-9a-fA-F]{4})$")
 
 
 def _crc(data: bytes) -> int:
@@ -150,8 +150,8 @@ def encode_text_frame(body: str, prefix: str = "") -> str:
     Args:
         body: Message body.
         prefix: Text placed before the 4-hex CRC. The default "" gives a bare
-            HHHH suffix; "0x" gives 0xHHHH. Only "" and "0x" round-trip through
-            decode_text_frame.
+            HHHH suffix; "0x" gives 0xHHHH. Only "", "0x", and "0X" round-trip
+            through decode_text_frame (the 0x prefix is case-insensitive).
 
     Returns:
         Encoded line text without trailing newline.

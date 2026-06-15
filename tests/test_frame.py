@@ -132,6 +132,20 @@ class TestTextFraming:
         assert " 0x" in line, "encoded line must include 0x prefix when requested"
         assert decoded.body == body, "decoded body must match encoded body"
 
+    def test_encode_decode_uppercase_0x_prefix_round_trip(self) -> None:
+        """An uppercase 0X prefix should round-trip; the prefix is case-insensitive."""
+        # Arrange
+        body = "REBOOT"
+
+        # Act
+        line = encode_text_frame(body, prefix="0X")
+        decoded = decode_text_frame(line)
+
+        # Assert
+        assert " 0X" in line, "encoded line must keep the uppercase 0X prefix"
+        assert decoded.body == body, "decoded body must match the encoded body"
+        assert decoded.claimed_crc == decoded.computed_crc, "CRC values must match"
+
     def test_decode_accepts_optional_newline(self) -> None:
         """Text decoder should allow newline-terminated input."""
         # Arrange
