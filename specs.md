@@ -21,7 +21,7 @@ Primary transport is a compact JSON line where CRC is carried in a final key.
 A message is one compact JSON object on one line with crc as the final key.
 
 Example:
-{"t":1234,"v":42,"crc":"31c3"}
+{"t":1234,"v":42,"crc":"1352"}
 
 CRC coverage rule:
 - CRC covers bytes from opening { up to but not including the "crc" key.
