@@ -61,7 +61,7 @@ def encode_json_frame(payload: dict[str, Any]) -> bytes:
 
     Examples:
         >>> encode_json_frame({"t": 1234, "v": 42}).decode("ascii")
-        '{"t":1234,"v":42,"crc":"6e4f"}'
+        '{"t":1234,"v":42,"crc":"1352"}'
     """
     if "crc" in payload:
         raise FrameFormatError("payload must not include 'crc' key")
@@ -88,7 +88,7 @@ def decode_json_frame(frame: bytes | str) -> DecodedJsonFrame:
         CrcMismatchError: If CRC verification fails.
 
     Examples:
-        >>> d = decode_json_frame('{"t":1,"crc":"7899"}')
+        >>> d = decode_json_frame('{"t":1,"crc":"ee8e"}')
         >>> d.payload["t"]
         1
     """
@@ -149,7 +149,7 @@ def encode_text_frame(body: str, with_0x_prefix: bool = False) -> str:
 
     Examples:
         >>> encode_text_frame("PING")
-        'PING e7b2'
+        'PING e0e7'
     """
     if body.endswith((" ", "\t")):
         raise FrameFormatError("text body must not end with whitespace")
@@ -173,7 +173,7 @@ def decode_text_frame(line: str) -> DecodedTextFrame:
         CrcMismatchError: If CRC verification fails.
 
     Examples:
-        >>> decode_text_frame("PING e7b2").body
+        >>> decode_text_frame("PING e0e7").body
         'PING'
     """
     raw = line.rstrip("\r\n")
