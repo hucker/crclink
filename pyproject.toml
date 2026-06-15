@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crclink"
+version = "0.1.0"
+description = "CRC-protected line framing for embedded serial links"
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+authors = [
+  { name = "Chuck" }
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "crcglot",
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.8"
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=crclink --cov-report=term-missing --cov-fail-under=90"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crclink"]
