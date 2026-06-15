@@ -85,3 +85,8 @@ These can start as baseline scaffolding and evolve with release process.
 - Additional framing mode beyond JSON and text suffix modes.
 - String escaping policy for constrained firmware emitters.
 - Strict canonical ordering policy for host-constructed frames.
+
+## CLI Utility
+Consider a future CLI utility for encoding/decoding frames for testing and debugging purposes. This can be a separate module or script that leverages the core API. Use argparse for the cli and make sure the cli is exposed in the package entry points for easy access.
+
+The main use case is for decoding a json line or text line and determining if it is valid OR encoding a line.
