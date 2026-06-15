@@ -10,13 +10,13 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Chuck" }]
-dependencies = []
+dependencies = ["crcglot>=0.21.0"]
 
 [project.scripts]
 crclink = "crclink.cli:main"
 
 [dependency-groups]
-dev = ["crcglot", "pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.8"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.8"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=crclink --cov-report=term-missing --cov-fail-under=90 --doctest-modules"

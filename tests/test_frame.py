@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from crcglot import compute
 
 from crclink import (
     CrcMismatchError,
@@ -12,33 +13,26 @@ from crclink import (
     encode_json_frame,
     encode_text_frame,
 )
-from crclink._crc16_xmodem import crc16_xmodem, crc16_xmodem_self_test
 
 
-class TestCrc16Xmodem:
-    """Reference checks for generated CRC-16/XMODEM primitive."""
+class TestCrcglotBoundary:
+    """Prove crclink is wired to crcglot's crc16-xmodem, not that the CRC is correct.
+
+    crcglot owns the algorithm and its own test suite; this is a single
+    connection check on the catalogue name crclink passes to the engine.
+    """
 
     def test_catalog_check_vector(self) -> None:
-        """Known check vector must match catalogue value."""
+        """The name crclink uses must resolve to crc16-xmodem in crcglot."""
         # Arrange
         data = b"123456789"
 
         # Act
-        actual = crc16_xmodem(data)
+        actual = compute(data, "crc16-xmodem")
 
         # Assert
         expected = 0x31C3
         assert actual == expected, "crc16-xmodem check vector must equal 0x31C3"
-
-    def test_generated_self_test_passes(self) -> None:
-        """Generated self-test should pass on this interpreter."""
-        # Arrange
-
-        # Act
-        actual = crc16_xmodem_self_test()
-
-        # Assert
-        assert actual is True, "generated crc self-test should report success"
 
 
 class TestJsonFraming:

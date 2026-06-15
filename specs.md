@@ -46,9 +46,11 @@ Use CRC-16/XMODEM (crc16-xmodem):
 - check("123456789"): 0x31C3
 
 Implementation requirement:
-- Use crcglot as a development dependency.
-- Generate crc16-xmodem implementation using crcglot tooling.
-- Keep runtime dependency set minimal.
+- Depend on crcglot at runtime and compute via its engine (`crcglot.compute(data, "crc16-xmodem")`); do not vendor or reimplement the CRC. crcglot owns the algorithm and its parameters.
+- Pin `crcglot>=0.21.0`.
+- crcglot is pure-stdlib (no transitive runtime dependencies), so the runtime footprint stays minimal.
+
+See docs/crcglot-integration.md for the full integration contract (host vs. firmware split, cross-end test vectors).
 
 ## API Baseline
 Provide baseline encode/decode/verify functionality for:

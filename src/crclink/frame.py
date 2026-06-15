@@ -7,10 +7,20 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from ._crc16_xmodem import crc16_xmodem
+from crcglot import compute
+
 from .errors import CrcMismatchError, FrameFormatError
 
+#: crcglot catalogue name for the CRC this transport uses. crcglot owns the
+#: parameters; crclink only names the algorithm and asks the engine.
+_ALGORITHM = "crc16-xmodem"
+
 _TEXT_SUFFIX_RE = re.compile(r"^(?P<body>.*) (?P<crc>(?:0x)?[0-9a-fA-F]{4})$")
+
+
+def _crc(data: bytes) -> int:
+    """Compute the transport CRC over data via crcglot's engine."""
+    return compute(data, _ALGORITHM)
 
 
 @dataclass(frozen=True)
@@ -69,7 +79,7 @@ def encode_json_frame(payload: dict[str, Any]) -> bytes:
     body_text = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
     prefix = "{" if body_text == "{}" else f"{body_text[:-1]},"
     prefix_bytes = prefix.encode("utf-8")
-    crc = crc16_xmodem(prefix_bytes)
+    crc = _crc(prefix_bytes)
     trailer = f'"crc":"{crc:04x}"}}'.encode("ascii")
     return prefix_bytes + trailer
 
@@ -119,7 +129,7 @@ def decode_json_frame(frame: bytes | str) -> DecodedJsonFrame:
         raise FrameFormatError("crc field must be a 4-character hex string")
 
     claimed_crc = int(crc_text, 16)
-    computed_crc = crc16_xmodem(prefix_bytes)
+    computed_crc = _crc(prefix_bytes)
     if computed_crc != claimed_crc:
         raise CrcMismatchError(
             f"crc mismatch: expected {claimed_crc:04x}, computed {computed_crc:04x}"
@@ -154,7 +164,7 @@ def encode_text_frame(body: str, with_0x_prefix: bool = False) -> str:
     if body.endswith((" ", "\t")):
         raise FrameFormatError("text body must not end with whitespace")
 
-    crc = crc16_xmodem(body.encode("utf-8"))
+    crc = _crc(body.encode("utf-8"))
     suffix = f"0x{crc:04x}" if with_0x_prefix else f"{crc:04x}"
     return f"{body} {suffix}"
 
@@ -187,7 +197,7 @@ def decode_text_frame(line: str) -> DecodedTextFrame:
         crc_token = crc_token[2:]
 
     claimed_crc = int(crc_token, 16)
-    computed_crc = crc16_xmodem(body.encode("utf-8"))
+    computed_crc = _crc(body.encode("utf-8"))
     if computed_crc != claimed_crc:
         raise CrcMismatchError(
             f"crc mismatch: expected {claimed_crc:04x}, computed {computed_crc:04x}"
