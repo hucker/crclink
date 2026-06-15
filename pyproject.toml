@@ -9,18 +9,14 @@ description = "CRC-protected line framing for embedded serial links"
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MIT" }
-authors = [
-  { name = "Chuck" }
-]
+authors = [{ name = "Chuck" }]
 dependencies = []
 
+[project.scripts]
+crclink = "crclink.cli:main"
+
 [dependency-groups]
-dev = [
-  "crcglot",
-  "pytest>=8.0",
-  "pytest-cov>=5.0",
-  "ruff>=0.8"
-]
+dev = ["crcglot", "pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.8"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=crclink --cov-report=term-missing --cov-fail-under=90"

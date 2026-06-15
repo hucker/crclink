@@ -1,5 +1,6 @@
 """crclink package."""
 
+from .cli import main
 from .errors import CrclinkError, CrcMismatchError, FrameFormatError
 from .frame import (
     DecodedJsonFrame,
@@ -16,6 +17,7 @@ __all__ = [
     "FrameFormatError",
     "DecodedJsonFrame",
     "DecodedTextFrame",
+    "main",
     "encode_json_frame",
     "decode_json_frame",
     "encode_text_frame",
