@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from crclink import encode_json_frame, encode_text_frame
 from crclink.cli import main
 
 
@@ -117,3 +118,132 @@ class TestCliText:
         # Assert
         assert exit_code == 1, "decode-text should return non-zero for invalid line"
         assert output.startswith("error:"), "decode-text failures should print error prefix"
+
+
+class TestCliVerifyFile:
+    """verify-file reads a file line by line and verifies every frame.
+
+    Frames are built with the encoders so the fixtures carry correct CRCs
+    without hardcoding hex values.
+    """
+
+    def test_all_valid_json_lines(self, tmp_path, capsys) -> None:
+        """A JSON-lines file of good frames should verify fully."""
+        # Arrange
+        frames = [encode_json_frame({"t": 1}).decode(), encode_json_frame({"v": 2}).decode()]
+        path = tmp_path / "frames.jsonl"
+        path.write_text("\n".join(frames) + "\n", encoding="utf-8")
+
+        # Act
+        exit_code = main(["verify-file", str(path), "--format", "json"])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 0, "all-valid json file should return zero exit code"
+        assert "verified 2/2 line(s)" in output, "summary should report 2 of 2 verified"
+
+    def test_all_valid_text_lines(self, tmp_path, capsys) -> None:
+        """A text-lines file of good frames should verify fully."""
+        # Arrange
+        lines = [encode_text_frame("PING"), encode_text_frame("SET mode=2")]
+        path = tmp_path / "frames.txt"
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        # Act
+        exit_code = main(["verify-file", str(path), "--format", "text"])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 0, "all-valid text file should return zero exit code"
+        assert "verified 2/2 line(s)" in output, "summary should report 2 of 2 verified"
+
+    def test_reports_failing_line(self, tmp_path, capsys) -> None:
+        """A bad line should fail verification and set a non-zero exit code."""
+        # Arrange
+        content = encode_text_frame("PING") + "\n" + "PING 0000\n"  # second line: wrong CRC
+        path = tmp_path / "mixed.txt"
+        path.write_text(content, encoding="utf-8")
+
+        # Act
+        exit_code = main(["verify-file", str(path), "--format", "text"])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 1, "a failing line should produce a non-zero exit code"
+        assert "line 2: FAIL" in output, "the failing line number should be reported"
+        assert "verified 1/2 line(s)" in output, "summary should report 1 of 2 verified"
+
+    def test_auto_format_detects_per_line(self, tmp_path, capsys) -> None:
+        """auto format should pick json or text per line by the leading brace."""
+        # Arrange
+        content = encode_json_frame({"t": 1}).decode() + "\n" + encode_text_frame("PING") + "\n"
+        path = tmp_path / "both.lines"
+        path.write_text(content, encoding="utf-8")
+
+        # Act
+        exit_code = main(["verify-file", str(path)])  # default --format auto
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 0, "auto-detected mixed file should verify fully"
+        assert "[json]" in output, "json line should be detected as json"
+        assert "[text]" in output, "text line should be detected as text"
+
+    def test_blank_lines_are_skipped(self, tmp_path, capsys) -> None:
+        """Blank and whitespace-only lines should not count toward the total."""
+        # Arrange
+        content = encode_text_frame("A") + "\n\n   \n" + encode_text_frame("B") + "\n"
+        path = tmp_path / "gaps.txt"
+        path.write_text(content, encoding="utf-8")
+
+        # Act
+        exit_code = main(["verify-file", str(path), "--format", "text"])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 0, "file with blank lines should still verify"
+        assert "verified 2/2 line(s)" in output, "blank lines should be skipped, not counted"
+
+    def test_quiet_suppresses_ok_lines(self, tmp_path, capsys) -> None:
+        """--quiet should print the summary but not per-line ok messages."""
+        # Arrange
+        path = tmp_path / "frames.txt"
+        path.write_text(encode_text_frame("PING") + "\n", encoding="utf-8")
+
+        # Act
+        exit_code = main(["verify-file", str(path), "--format", "text", "--quiet"])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 0, "quiet run of a valid file should return zero"
+        assert "ok" not in output, "quiet mode should suppress per-line ok output"
+        assert "verified 1/1 line(s)" in output, "quiet mode should still print the summary"
+
+    def test_reads_stdin_with_dash(self, capsys, monkeypatch) -> None:
+        """A path of '-' should verify frames read from standard input."""
+        # Arrange
+        import io
+
+        content = encode_text_frame("PING") + "\n" + encode_text_frame("PONG") + "\n"
+        monkeypatch.setattr("sys.stdin", io.StringIO(content))
+
+        # Act
+        exit_code = main(["verify-file", "-", "--format", "text"])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 0, "valid frames on stdin should return zero"
+        assert "verified 2/2 line(s)" in output, "stdin frames should be counted and verified"
+
+    def test_missing_file_errors(self, tmp_path, capsys) -> None:
+        """A missing path should print an error and return a non-zero exit code."""
+        # Arrange
+        missing = tmp_path / "does-not-exist.txt"
+
+        # Act
+        exit_code = main(["verify-file", str(missing)])
+        output = capsys.readouterr().out
+
+        # Assert
+        assert exit_code == 1, "missing file should return a non-zero exit code"
+        assert output.startswith("error:"), "missing file should print an error prefix"

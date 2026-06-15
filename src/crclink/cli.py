@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Sequence
+import sys
+from collections.abc import Iterable, Sequence
 
 from .errors import CrclinkError
 from .frame import (
@@ -45,7 +46,83 @@ def build_parser() -> argparse.ArgumentParser:
     decode_text = subparsers.add_parser("decode-text", help="Decode and verify a text frame")
     decode_text.add_argument("line", help="Text frame to decode")
 
+    verify_file = subparsers.add_parser(
+        "verify-file", help="Verify every frame line in a file (or stdin)"
+    )
+    verify_file.add_argument("path", help="File to read, or - for standard input")
+    verify_file.add_argument(
+        "--format",
+        choices=("auto", "json", "text"),
+        default="auto",
+        help="Frame format per line; auto picks json for lines starting with '{' (default: auto)",
+    )
+    verify_file.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print only failing lines and the final summary",
+    )
+
     return parser
+
+
+def _verify_lines(lines: Iterable[str], fmt: str, quiet: bool) -> int:
+    """Verify each non-blank line of an iterable of frame lines.
+
+    Args:
+        lines: Source lines (file handle, stdin, or any string iterable).
+        fmt: "json", "text", or "auto" (decide per line by a leading '{').
+        quiet: When true, print only failing lines and the summary.
+
+    Returns:
+        Exit code: 0 if every checked line verified, 1 if any failed.
+    """
+    checked = 0
+    failed = 0
+    for lineno, raw in enumerate(lines, start=1):
+        line = raw.rstrip("\r\n")
+        if not line.strip():
+            continue  # blank lines are not frames; skip without counting
+
+        checked += 1
+        line_fmt = "json" if (fmt == "auto" and line.lstrip().startswith("{")) else fmt
+        if line_fmt == "auto":
+            line_fmt = "text"
+
+        try:
+            if line_fmt == "json":
+                decode_json_frame(line)
+            else:
+                decode_text_frame(line)
+        except CrclinkError as exc:
+            failed += 1
+            print(f"line {lineno}: FAIL [{line_fmt}] {exc}")
+        else:
+            if not quiet:
+                print(f"line {lineno}: ok [{line_fmt}]")
+
+    print(f"verified {checked - failed}/{checked} line(s)")
+    return 1 if failed else 0
+
+
+def _verify_file(path: str, fmt: str, quiet: bool) -> int:
+    """Verify every frame line in a file, streaming line by line.
+
+    Args:
+        path: File path, or "-" to read standard input.
+        fmt: "json", "text", or "auto".
+        quiet: When true, print only failing lines and the summary.
+
+    Returns:
+        Exit code from verification, or 1 if the file cannot be read.
+    """
+    try:
+        if path == "-":
+            return _verify_lines(sys.stdin, fmt, quiet)
+        with open(path, encoding="utf-8") as handle:
+            return _verify_lines(handle, fmt, quiet)
+    except OSError as exc:
+        print(f"error: {exc}")
+        return 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -95,6 +172,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
             print(json.dumps(result, separators=(",", ":"), ensure_ascii=False))
             return 0
+
+        if args.command == "verify-file":
+            return _verify_file(args.path, args.format, args.quiet)
 
         parser.error("unknown command")
         return 2
