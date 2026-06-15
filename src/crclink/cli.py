@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     encode_json = subparsers.add_parser("encode-json", help="Encode a JSON payload frame")
     encode_json.add_argument(
         "payload",
-        help="JSON object payload (without crc key), for example '{\"t\":1,\"v\":2}'",
+        help='JSON object payload (without crc key), for example \'{"t":1,"v":2}\'',
     )
 
     decode_json = subparsers.add_parser("decode-json", help="Decode and verify a JSON frame")
