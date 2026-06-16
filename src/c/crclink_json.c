@@ -3,7 +3,6 @@
 
 #include "crc16_xmodem.h"
 
-#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,6 +28,8 @@ static int put_escaped(char *s, const char *text) {
         switch (c) {
             case '"':  piece = "\\\""; break;
             case '\\': piece = "\\\\"; break;
+            case '\b': piece = "\\b";  break;
+            case '\f': piece = "\\f";  break;
             case '\n': piece = "\\n";  break;
             case '\r': piece = "\\r";  break;
             case '\t': piece = "\\t";  break;
@@ -77,27 +78,21 @@ int json_int_add(char *s, const char *key, long value) {
     return 0;
 }
 
-int json_int_list_add(char *s, const char *key, size_t count, ...) {
+int json_int_list_add(char *s, const char *key, const int *values, size_t count) {
     size_t mark = strlen(s);
     if (put(s, "\"") || put(s, key) || put(s, "\":[")) {
         s[mark] = '\0';
         return -1;
     }
-
-    va_list ap;
-    va_start(ap, count);
-    int failed = 0;
     for (size_t i = 0; i < count; i++) {
         char num[24];
-        snprintf(num, sizeof num, "%d", va_arg(ap, int));
+        snprintf(num, sizeof num, "%d", values[i]);
         if (put(s, num) || (i + 1 < count && put(s, ","))) {
-            failed = 1;
-            break;
+            s[mark] = '\0';  /* roll back the whole field */
+            return -1;
         }
     }
-    va_end(ap);
-
-    if (failed || put(s, "],")) {
+    if (put(s, "],")) {
         s[mark] = '\0';
         return -1;
     }

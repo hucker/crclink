@@ -7,8 +7,9 @@
  *     json_start(s);
  *     json_str_add(s, "msg", "hi");
  *     json_int_add(s, "v", 12);
- *     json_int_list_add(s, "xs", 3, 1, 2, 3);   // count, then the values
- *     json_end(s);   // -> {"msg":"hi","v":12,"xs":[1,2,3],"crc":"...."}
+ *     int xs[] = {1, 2};
+ *     json_int_list_add(s, "xs", xs, 2);
+ *     json_end(s);   // -> {"msg":"hi","v":12,"xs":[1,2],"crc":"...."}
  *
  * The buffer MUST be declared with capacity CRCLINK_JSON_CAP (override the
  * macro before including to change it). Every function bounds-checks against
@@ -43,9 +44,10 @@ int json_str_add(char *s, const char *key, const char *value);
 /* Add "key":value for an integer. Returns 0 on success, -1 on overflow. */
 int json_int_add(char *s, const char *key, long value);
 
-/* Add "key":[v0,v1,...] from count int arguments. The ints are read with the
- * default argument promotion, so pass plain int values. Returns 0, -1 on overflow. */
-int json_int_list_add(char *s, const char *key, size_t count, ...);
+/* Add "key":[v0,...] from a count-element int array. Pass the array pointer and
+ * its length; count 0 yields []. values must point to count ints when count > 0.
+ * Returns 0 on success, -1 on overflow. */
+int json_int_list_add(char *s, const char *key, const int *values, size_t count);
 
 /* Add "key":<json_object> verbatim, for a nested object the caller already
  * built (no escaping, no validation). Returns 0 on success, -1 on overflow. */
@@ -58,14 +60,5 @@ int json_end(char *s);
 #ifdef __cplusplus
 }
 #endif
-
-/* Convenience macro so the count is filled in for you, up to 16 values:
- *     JSON_INT_LIST_ADD(s, "xs", 1, 2, 3, 4, 5)
- */
-#define JSON_INT_LIST_ADD(s, key, ...) \
-    json_int_list_add((s), (key), JSON_NARGS(__VA_ARGS__), __VA_ARGS__)
-#define JSON_NARGS(...) \
-    JSON_NARGS_(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
-#define JSON_NARGS_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
 
 #endif /* CRCLINK_JSON_H */

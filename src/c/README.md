@@ -18,7 +18,8 @@ char s[CRCLINK_JSON_CAP];
 json_start(s);
 json_str_add(s, "msg", "hi");
 json_int_add(s, "v", 12);
-JSON_INT_LIST_ADD(s, "xs", 1, 2, 3, 4, 5);
+int xs[] = {1, 2, 3, 4, 5};
+json_int_list_add(s, "xs", xs, 5);
 json_end(s);                 // -> {"msg":"hi","v":12,"xs":[1,2,3,4,5],"crc":"...."}
 ```
 
