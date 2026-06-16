@@ -3,12 +3,13 @@
  * @brief Read fields from a flat crclink JSON frame body.
  *
  * Typed getters for a single-level JSON object, for a command arriving over a
- * serial link, e.g. `{"cmd":"reboot","n":3,"crc":"...."}`. The CRC is assumed to
- * have been checked already; these only extract values by key. Numbers are
- * converted for you (no string detour). Parsing is built on a vendored jsmn
- * (MIT) and uses no heap.
+ * serial link, e.g. `{"cmd":"reboot","n":3,"crc":"...."}`. Check the frame with
+ * crclink_json_verify first, then extract values by key. Numbers are converted
+ * for you (no string detour). Parsing is built on a vendored jsmn (MIT) and uses
+ * no heap.
  *
  * @code
+ * if (crclink_json_verify(line) != 0) return;   // bad CRC: drop the frame
  * char cmd[20];
  * if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) >= 0
  *     && strcmp(cmd, "reboot") == 0) { ... }
@@ -34,6 +35,21 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief Verify a frame's CRC against its covered prefix.
+ *
+ * Computes crc16-xmodem over the bytes from the opening '{' up to and including
+ * the comma before the "crc" key, and compares it to the frame's 4-hex-digit crc
+ * value. This is the same coverage as crclink's Python decoder, so a frame from
+ * crclink.encode_json_frame verifies here and vice versa. Call it before the
+ * getters on any frame from an untrusted link.
+ *
+ * @param frame NUL-terminated frame text, with no trailing newline.
+ * @return 0 if the CRC matches, or -1 if the frame is malformed, has no "crc"
+ *         key, the crc value is not a 4-hex string, or the CRC does not match.
+ */
+int crclink_json_verify(const char *frame);
 
 /**
  * @brief Copy the string value of @p key into @p out, JSON-unescaped and NUL-terminated.

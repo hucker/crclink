@@ -20,7 +20,7 @@ TMPENV = TMP=C:/tmp TEMP=C:/tmp
 endif
 
 BUILDER_SRCS = $(UNITY) $(SRCDIR)/crc16_xmodem.c $(SRCDIR)/crclink_json.c test_crclink_json.c
-READER_SRCS  = $(UNITY) $(SRCDIR)/crclink_json_read.c test_crclink_json_read.c
+READER_SRCS  = $(UNITY) $(SRCDIR)/crc16_xmodem.c $(SRCDIR)/crclink_json_read.c test_crclink_json_read.c
 
 .PHONY: test clean
 

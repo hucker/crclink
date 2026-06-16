@@ -4,6 +4,8 @@
 #define JSMN_STATIC
 #include "jsmn.h"
 
+#include "crc16_xmodem.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -127,6 +129,66 @@ static int copy_unescaped(const char *src, int len, char *out, size_t outcap) {
     }
     out[o] = '\0';
     return (int)o;
+}
+
+/* Parse exactly len hex digits at s into *out. Returns 0, or -1 if not 4 hex. */
+static int parse_hex4(const char *s, int len, uint16_t *out) {
+    if (len != 4) {
+        return -1;
+    }
+    uint16_t v = 0;
+    for (int i = 0; i < 4; i++) {
+        char d = s[i];
+        v = (uint16_t)(v << 4);
+        if (d >= '0' && d <= '9') {
+            v |= (uint16_t)(d - '0');
+        } else if (d >= 'a' && d <= 'f') {
+            v |= (uint16_t)(d - 'a' + 10);
+        } else if (d >= 'A' && d <= 'F') {
+            v |= (uint16_t)(d - 'A' + 10);
+        } else {
+            return -1;
+        }
+    }
+    *out = v;
+    return 0;
+}
+
+int crclink_json_verify(const char *frame) {
+    jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
+    jsmn_parser p;
+    jsmn_init(&p);
+    int n = jsmn_parse(&p, frame, strlen(frame), toks, CRCLINK_JSON_MAX_TOKENS);
+    if (n < 1 || toks[0].type != JSMN_OBJECT) {
+        return -1;
+    }
+
+    int i = 1;
+    while (i + 1 < n) {
+        const jsmntok_t *k = &toks[i];
+        if (k->type != JSMN_STRING) {
+            break;
+        }
+        int vi = i + 1;
+        if (k->end - k->start == 3 && memcmp(frame + k->start, "crc", 3) == 0) {
+            const jsmntok_t *v = &toks[vi];
+            uint16_t claimed;
+            if (v->type != JSMN_STRING ||
+                parse_hex4(frame + v->start, v->end - v->start, &claimed) != 0) {
+                return -1;
+            }
+            /* Prefix: '{' up to and including the comma before the crc key's
+             * opening quote (at k->start - 1), matching the Python decoder. */
+            size_t prefix_len = (size_t)(k->start - 1);
+            uint16_t computed = crc16_xmodem((const uint8_t *)frame, prefix_len);
+            return (computed == claimed) ? 0 : -1;
+        }
+        i = after_value(toks, n, vi);
+        if (i < 0) {
+            return -1;
+        }
+    }
+    return -1; /* no crc field */
 }
 
 int crclink_json_get_str(const char *json, const char *key, char *out, size_t outcap) {

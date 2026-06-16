@@ -47,10 +47,12 @@ Each `*_add` returns 0, or -1 once a sink write has failed. Failure is sticky: a
 
 ## Read incoming commands
 
-For a command arriving over the link (CRC already checked), pull fields by key with typed getters. Numbers are converted for you; values never go through a string detour.
+For a command arriving over the link, verify the CRC, then pull fields by key with typed getters. Numbers are converted for you; values never go through a string detour.
 
 ```c
 #include "crclink_json_read.h"
+
+if (crclink_json_verify(line) != 0) return;   // bad CRC: drop the frame
 
 char cmd[20];
 if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) >= 0
@@ -61,7 +63,7 @@ long n;
 crclink_json_get_int(line, "n", &n);
 ```
 
-`line` must be NUL-terminated. Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. Floating point is opt-in: compile with `-DCRCLINK_JSON_FLOATS` to get `crclink_json_get_float` (it pulls in `strtod`, which is costly on a soft-float target); integers and the rest never need it. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it for wider frames.
+`crclink_json_verify` recomputes crc16-xmodem over the frame's covered prefix (the same coverage as the Python decoder) and checks it against the embedded crc, so a frame from `crclink.encode_json_frame` verifies on the device and vice versa. `line` must be NUL-terminated. Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. Floating point is opt-in: compile with `-DCRCLINK_JSON_FLOATS` to get `crclink_json_get_float` (it pulls in `strtod`, which is costly on a soft-float target); integers and the rest never need it. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it for wider frames.
 
 ## Build
 

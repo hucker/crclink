@@ -18,6 +18,7 @@ static const char *BOOLS = "{\"flag\":true,\"off\":false,\"crc\":\"6cb9\"}";
 static const char *FLOAT = "{\"x\":3.14,\"crc\":\"e5d1\"}";
 static const char *ESC = "{\"q\":\"a\\\"b\\\\c\",\"crc\":\"f0fb\"}";
 static const char *TAB = "{\"t\":\"\\t\",\"crc\":\"aaf8\"}";
+static const char *EMPTY = "{\"crc\":\"cffc\"}";
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -94,6 +95,28 @@ void test_nesting_beyond_flat_fails_closed(void) {
     TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_int(deep, "x", &v));
 }
 
+void test_verify_accepts_valid_frames(void) {
+    /* Real frames from crclink.encode_json_frame: C verifies the Python CRC. */
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_verify(CMD));
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_verify(INTS));
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_verify(EMPTY));
+}
+
+void test_verify_rejects_tampered_payload(void) {
+    /* CMD payload altered (capital G) but the original crc kept: must fail. */
+    const char *bad = "{\"cmd\":\"do somethinG\",\"crc\":\"21f9\"}";
+    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_verify(bad));
+}
+
+void test_verify_rejects_wrong_crc(void) {
+    const char *bad = "{\"cmd\":\"do something\",\"crc\":\"0000\"}";
+    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_verify(bad));
+}
+
+void test_verify_rejects_frame_without_crc(void) {
+    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_verify("{\"cmd\":\"x\"}"));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_get_str);
@@ -106,5 +129,9 @@ int main(void) {
     RUN_TEST(test_wrong_type_returns_negative);
     RUN_TEST(test_buffer_too_small_returns_negative);
     RUN_TEST(test_nesting_beyond_flat_fails_closed);
+    RUN_TEST(test_verify_accepts_valid_frames);
+    RUN_TEST(test_verify_rejects_tampered_payload);
+    RUN_TEST(test_verify_rejects_wrong_crc);
+    RUN_TEST(test_verify_rejects_frame_without_crc);
     return UNITY_END();
 }
