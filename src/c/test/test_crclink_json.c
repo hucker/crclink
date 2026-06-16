@@ -9,17 +9,15 @@
  */
 #include "unity.h"
 
-#include "crclink_json.h"
 #include "crc16_xmodem.h"
+#include "crclink_json.h"
 
 #include <string.h>
 
 void setUp(void) {}
 void tearDown(void) {}
 
-void test_crc_self_test_passes(void) {
-    TEST_ASSERT_EQUAL_INT(0, crc16_xmodem_self_test());
-}
+void test_crc_self_test_passes(void) { TEST_ASSERT_EQUAL_INT(0, crc16_xmodem_self_test()); }
 
 void test_simple_frame(void) {
     char s[100];
@@ -31,7 +29,7 @@ void test_simple_frame(void) {
     int len = crclink_json_end(&j);
 
     TEST_ASSERT_EQUAL_STRING("{\"msg\":\"hi\",\"v\":12,\"crc\":\"0256\"}", s);
-    TEST_ASSERT_EQUAL_INT((int)strlen(s), len);  /* end() returns frame length */
+    TEST_ASSERT_EQUAL_INT((int)strlen(s), len); /* end() returns frame length */
 }
 
 void test_int_list(void) {
@@ -61,7 +59,7 @@ void test_string_escaping_quote_and_backslash(void) {
     crclink_json_t j;
     crclink_json_buf_t b;
     crclink_json_start_buf(&j, &b, s, sizeof s);
-    crclink_json_str_add(&j, "q", "a\"b\\c");  /* value: a"b\c */
+    crclink_json_str_add(&j, "q", "a\"b\\c"); /* value: a"b\c */
     crclink_json_end(&j);
 
     TEST_ASSERT_EQUAL_STRING("{\"q\":\"a\\\"b\\\\c\",\"crc\":\"f0fb\"}", s);
@@ -72,7 +70,7 @@ void test_backspace_uses_short_escape(void) {
     crclink_json_t j;
     crclink_json_buf_t b;
     crclink_json_start_buf(&j, &b, s, sizeof s);
-    crclink_json_str_add(&j, "m", "\b");  /* backspace -> \b, not  */
+    crclink_json_str_add(&j, "m", "\b"); /* backspace -> \b, not  */
     crclink_json_end(&j);
 
     TEST_ASSERT_EQUAL_STRING("{\"m\":\"\\b\",\"crc\":\"3f86\"}", s);
@@ -125,7 +123,7 @@ void test_buffer_and_putc_sinks_produce_identical_bytes(void) {
 }
 
 void test_overflow_returns_negative_and_stays_in_bounds(void) {
-    char s[10];  /* far too small for the frame below */
+    char s[10]; /* far too small for the frame below */
     crclink_json_t j;
     crclink_json_buf_t b;
     crclink_json_start_buf(&j, &b, s, sizeof s);
@@ -133,9 +131,9 @@ void test_overflow_returns_negative_and_stays_in_bounds(void) {
     crclink_json_int_add(&j, "fum", 12);
     int r = crclink_json_end(&j);
 
-    TEST_ASSERT_LESS_THAN_INT(0, r);          /* overflow signalled */
-    TEST_ASSERT_TRUE(b.len < b.cap);          /* never wrote past capacity */
-    TEST_ASSERT_EQUAL_CHAR('\0', s[b.len]);   /* still NUL-terminated in bounds */
+    TEST_ASSERT_LESS_THAN_INT(0, r);        /* overflow signalled */
+    TEST_ASSERT_TRUE(b.len < b.cap);        /* never wrote past capacity */
+    TEST_ASSERT_EQUAL_CHAR('\0', s[b.len]); /* still NUL-terminated in bounds */
 }
 
 int main(void) {

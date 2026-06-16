@@ -1,0 +1,13 @@
+# C formatting for crclink's own source (4-space, 100 cols). Vendored and
+# generated files are excluded via .clang-format-ignore. Run `clang-format -i`
+# on the source, or enable format-on-save in VSCode.
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Right
+AllowShortCaseLabelsOnASingleLine: true
+IndentCaseLabels: true
+# Leave comment line breaks alone (preserves license blocks and Doxygen layout).
+ReflowComments: false

@@ -50,13 +50,13 @@ static void emit_escaped(crclink_json_t *j, const char *text) {
     for (; *text; text++) {
         unsigned char c = (unsigned char)*text;
         switch (c) {
-            case '"':  emit_str(j, "\\\""); break;
+            case '"': emit_str(j, "\\\""); break;
             case '\\': emit_str(j, "\\\\"); break;
-            case '\b': emit_str(j, "\\b");  break;
-            case '\f': emit_str(j, "\\f");  break;
-            case '\n': emit_str(j, "\\n");  break;
-            case '\r': emit_str(j, "\\r");  break;
-            case '\t': emit_str(j, "\\t");  break;
+            case '\b': emit_str(j, "\\b"); break;
+            case '\f': emit_str(j, "\\f"); break;
+            case '\n': emit_str(j, "\\n"); break;
+            case '\r': emit_str(j, "\\r"); break;
+            case '\t': emit_str(j, "\\t"); break;
             default:
                 if (c < 0x20) {
                     char u[7];
@@ -71,7 +71,7 @@ static void emit_escaped(crclink_json_t *j, const char *text) {
 
 int crclink_json_buf_sink(void *ctx, uint8_t byte) {
     crclink_json_buf_t *b = (crclink_json_buf_t *)ctx;
-    if (b->len + 1 >= b->cap) {  /* reserve one byte for the NUL terminator */
+    if (b->len + 1 >= b->cap) { /* reserve one byte for the NUL terminator */
         return -1;
     }
     b->buf[b->len++] = (char)byte;

@@ -25,15 +25,15 @@ static int after_value(const jsmntok_t *toks, int n, int vi) {
     } else if (v.type == JSMN_OBJECT) {
         children = 2 * v.size;
     } else {
-        return vi + 1;  /* scalar */
+        return vi + 1; /* scalar */
     }
     int i = vi + 1;
     for (int c = 0; c < children; c++) {
         if (i >= n) {
-            return -1;  /* truncated token stream */
+            return -1; /* truncated token stream */
         }
         if (toks[i].type == JSMN_ARRAY || toks[i].type == JSMN_OBJECT) {
-            return -1;  /* deeper than this flat reader supports: fail closed */
+            return -1; /* deeper than this flat reader supports: fail closed */
         }
         i++;
     }
@@ -54,16 +54,15 @@ static int find_value(const char *json, const char *key, jsmntok_t *toks) {
     while (i + 1 < n) {
         const jsmntok_t *k = &toks[i];
         if (k->type != JSMN_STRING) {
-            break;  /* malformed for a flat object */
+            break; /* malformed for a flat object */
         }
         int vi = i + 1;
-        if ((size_t)(k->end - k->start) == keylen &&
-            memcmp(json + k->start, key, keylen) == 0) {
+        if ((size_t)(k->end - k->start) == keylen && memcmp(json + k->start, key, keylen) == 0) {
             return vi;
         }
         i = after_value(toks, n, vi);
         if (i < 0) {
-            return -1;  /* value too deep to step over: fail closed */
+            return -1; /* value too deep to step over: fail closed */
         }
     }
     return -1;
@@ -78,14 +77,14 @@ static int copy_unescaped(const char *src, int len, char *out, size_t outcap) {
         if (ch == '\\' && i + 1 < len) {
             char e = src[++i];
             switch (e) {
-                case '"':  ch = '"';  break;
+                case '"': ch = '"'; break;
                 case '\\': ch = '\\'; break;
-                case '/':  ch = '/';  break;
-                case 'b':  ch = '\b'; break;
-                case 'f':  ch = '\f'; break;
-                case 'n':  ch = '\n'; break;
-                case 'r':  ch = '\r'; break;
-                case 't':  ch = '\t'; break;
+                case '/': ch = '/'; break;
+                case 'b': ch = '\b'; break;
+                case 'f': ch = '\f'; break;
+                case 'n': ch = '\n'; break;
+                case 'r': ch = '\r'; break;
+                case 't': ch = '\t'; break;
                 case 'u': {
                     /* \uXXXX: decode 4 hex digits; emit one byte if it fits
                      * (the builder only ever emits \u00xx for control bytes),
@@ -96,27 +95,33 @@ static int copy_unescaped(const char *src, int len, char *out, size_t outcap) {
                         for (int h = 1; h <= 4; h++) {
                             char d = src[i + h];
                             cp <<= 4;
-                            if (d >= '0' && d <= '9') cp |= (unsigned)(d - '0');
-                            else if (d >= 'a' && d <= 'f') cp |= (unsigned)(d - 'a' + 10);
-                            else if (d >= 'A' && d <= 'F') cp |= (unsigned)(d - 'A' + 10);
-                            else { ok = 0; break; }
+                            if (d >= '0' && d <= '9')
+                                cp |= (unsigned)(d - '0');
+                            else if (d >= 'a' && d <= 'f')
+                                cp |= (unsigned)(d - 'a' + 10);
+                            else if (d >= 'A' && d <= 'F')
+                                cp |= (unsigned)(d - 'A' + 10);
+                            else {
+                                ok = 0;
+                                break;
+                            }
                         }
                         if (ok) {
                             i += 4;
                             ch = (cp <= 0xFF) ? (char)cp : '?';
                         } else {
-                            ch = e;  /* malformed \u, copy the 'u' literally */
+                            ch = e; /* malformed \u, copy the 'u' literally */
                         }
                     } else {
                         ch = e;
                     }
                     break;
                 }
-                default: ch = e; break;  /* unknown escape: copy the char as-is */
+                default: ch = e; break; /* unknown escape: copy the char as-is */
             }
         }
         if (o + 1 >= outcap) {
-            return -1;  /* no room for this byte plus the NUL */
+            return -1; /* no room for this byte plus the NUL */
         }
         out[o++] = ch;
     }
@@ -144,7 +149,7 @@ int crclink_json_get_int(const char *json, const char *key, long *out) {
     }
     const char *s = json + toks[vi].start;
     if (*s != '-' && (*s < '0' || *s > '9')) {
-        return -1;  /* true / false / null */
+        return -1; /* true / false / null */
     }
     *out = strtol(s, NULL, 10);
     return 0;

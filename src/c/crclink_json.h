@@ -65,10 +65,10 @@ typedef int (*crclink_json_sink)(void *ctx, uint8_t byte);
  */
 typedef struct {
     crclink_json_sink sink;
-    void             *ctx;
-    uint16_t          crc;    /**< running crc16-xmodem over the prefix */
-    int               err;    /**< sticky: set on the first failed sink write */
-    size_t            total;  /**< bytes emitted so far (the frame length) */
+    void *ctx;
+    uint16_t crc; /**< running crc16-xmodem over the prefix */
+    int err;      /**< sticky: set on the first failed sink write */
+    size_t total; /**< bytes emitted so far (the frame length) */
 } crclink_json_t;
 
 /**
@@ -78,7 +78,7 @@ typedef struct {
  * cap-1 frame bytes fit. @p len is the current frame length.
  */
 typedef struct {
-    char  *buf;
+    char *buf;
     size_t cap;
     size_t len;
 } crclink_json_buf_t;

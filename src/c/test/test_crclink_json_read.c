@@ -12,12 +12,12 @@
 #include <string.h>
 
 /* Golden frames (the trailing "crc" is present but ignored by the reader). */
-static const char *CMD   = "{\"cmd\":\"do something\",\"crc\":\"21f9\"}";
-static const char *INTS  = "{\"n\":12,\"neg\":-5,\"crc\":\"5a8a\"}";
+static const char *CMD = "{\"cmd\":\"do something\",\"crc\":\"21f9\"}";
+static const char *INTS = "{\"n\":12,\"neg\":-5,\"crc\":\"5a8a\"}";
 static const char *BOOLS = "{\"flag\":true,\"off\":false,\"crc\":\"6cb9\"}";
 static const char *FLOAT = "{\"x\":3.14,\"crc\":\"e5d1\"}";
-static const char *ESC   = "{\"q\":\"a\\\"b\\\\c\",\"crc\":\"f0fb\"}";
-static const char *TAB   = "{\"t\":\"\\t\",\"crc\":\"aaf8\"}";
+static const char *ESC = "{\"q\":\"a\\\"b\\\\c\",\"crc\":\"f0fb\"}";
+static const char *TAB = "{\"t\":\"\\t\",\"crc\":\"aaf8\"}";
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -48,14 +48,14 @@ void test_get_bool(void) {
 void test_get_float(void) {
     double x = 0.0;
     TEST_ASSERT_EQUAL_INT(0, crclink_json_get_float(FLOAT, "x", &x));
-    TEST_ASSERT_TRUE(x > 3.139 && x < 3.141);  /* 3.14 without Unity double config */
+    TEST_ASSERT_TRUE(x > 3.139 && x < 3.141); /* 3.14 without Unity double config */
 }
 
 void test_unescapes_quote_and_backslash(void) {
     char out[32];
     int len = crclink_json_get_str(ESC, "q", out, sizeof out);
     TEST_ASSERT_EQUAL_INT(5, len);
-    TEST_ASSERT_EQUAL_STRING("a\"b\\c", out);  /* value: a"b\c */
+    TEST_ASSERT_EQUAL_STRING("a\"b\\c", out); /* value: a"b\c */
 }
 
 void test_unescapes_short_escape(void) {
@@ -75,12 +75,13 @@ void test_missing_key_returns_negative(void) {
 void test_wrong_type_returns_negative(void) {
     char out[16];
     long n;
-    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_int(CMD, "cmd", &n));   /* cmd is a string */
-    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_str(INTS, "n", out, sizeof out));  /* n is an int */
+    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_int(CMD, "cmd", &n)); /* cmd is a string */
+    TEST_ASSERT_LESS_THAN_INT(0,
+                              crclink_json_get_str(INTS, "n", out, sizeof out)); /* n is an int */
 }
 
 void test_buffer_too_small_returns_negative(void) {
-    char out[4];  /* "do something" will not fit */
+    char out[4]; /* "do something" will not fit */
     TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_str(CMD, "cmd", out, sizeof out));
 }
 
