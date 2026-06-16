@@ -54,6 +54,29 @@ void test_empty_object(void) {
     TEST_ASSERT_EQUAL_STRING("{\"crc\":\"cffc\"}", s);
 }
 
+void test_bool(void) {
+    char s[100];
+    crclink_json_t j;
+    crclink_json_buf_t b;
+    crclink_json_start_buf(&j, &b, s, sizeof s);
+    crclink_json_bool_add(&j, "flag", 1);
+    crclink_json_bool_add(&j, "off", 0);
+    crclink_json_end(&j);
+
+    TEST_ASSERT_EQUAL_STRING("{\"flag\":true,\"off\":false,\"crc\":\"6cb9\"}", s);
+}
+
+void test_float(void) {
+    char s[100];
+    crclink_json_t j;
+    crclink_json_buf_t b;
+    crclink_json_start_buf(&j, &b, s, sizeof s);
+    crclink_json_float_add(&j, "x", 3.14); /* "%g" -> "3.14", matches json.dumps */
+    crclink_json_end(&j);
+
+    TEST_ASSERT_EQUAL_STRING("{\"x\":3.14,\"crc\":\"e5d1\"}", s);
+}
+
 void test_string_escaping_quote_and_backslash(void) {
     char s[100];
     crclink_json_t j;
@@ -142,6 +165,8 @@ int main(void) {
     RUN_TEST(test_simple_frame);
     RUN_TEST(test_int_list);
     RUN_TEST(test_empty_object);
+    RUN_TEST(test_bool);
+    RUN_TEST(test_float);
     RUN_TEST(test_string_escaping_quote_and_backslash);
     RUN_TEST(test_backspace_uses_short_escape);
     RUN_TEST(test_nested_dict_verbatim);

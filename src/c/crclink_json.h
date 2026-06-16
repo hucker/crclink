@@ -126,6 +126,22 @@ int crclink_json_str_add(crclink_json_t *j, const char *key, const char *value);
 int crclink_json_int_add(crclink_json_t *j, const char *key, long value);
 
 /**
+ * @brief Add a "key":true / "key":false field.
+ * @return 0, or -1 once the frame has overflowed.
+ */
+int crclink_json_bool_add(crclink_json_t *j, const char *key, int value);
+
+#ifdef CRCLINK_JSON_FLOATS
+/**
+ * @brief Add a "key":value field for a double. Compiled only when
+ *        CRCLINK_JSON_FLOATS is defined (pulls in snprintf float support).
+ *        Formatted with "%g"; pass a finite value (JSON has no inf/nan).
+ * @return 0, or -1 once the frame has overflowed.
+ */
+int crclink_json_float_add(crclink_json_t *j, const char *key, double value);
+#endif
+
+/**
  * @brief Add a "key":[v0,...] field from a count-element int array.
  *
  * @p count 0 yields []. @p values must point to @p count ints when count > 0.

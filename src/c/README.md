@@ -22,11 +22,15 @@ char s[100];
 crclink_json_t j;
 crclink_json_buf_t b;
 crclink_json_start_buf(&j, &b, s, sizeof s);
-crclink_json_str_add(&j, "msg", "hi");
-crclink_json_int_add(&j, "v", 12);
-int xs[] = {1, 2, 3, 4, 5};
-crclink_json_int_list_add(&j, "xs", xs, 5);
-crclink_json_end(&j);        // s -> {"msg":"hi","v":12,"xs":[1,2,3,4,5],"crc":"...."}
+crclink_json_str_add(&j, "status", "ready");
+crclink_json_int_add(&j, "code", 0);
+crclink_json_bool_add(&j, "ok", 1);
+crclink_json_float_add(&j, "v", 3.3);    // float adder needs -DCRCLINK_JSON_FLOATS
+int xs[] = {1, 2, 3};
+crclink_json_int_list_add(&j, "xs", xs, 3);
+crclink_json_dict_add(&j, "meta", "{\"n\":1}");   // verbatim nested object
+crclink_json_end(&j);
+// s -> {"status":"ready","code":0,"ok":true,"v":3.3,"xs":[1,2,3],"meta":{"n":1},"crc":"...."}
 ```
 
 Straight out a serial port: supply your own per-byte sink. Nothing buffers the frame.

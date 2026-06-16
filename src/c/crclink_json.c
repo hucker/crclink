@@ -119,6 +119,28 @@ int crclink_json_int_add(crclink_json_t *j, const char *key, long value) {
     return j->err ? -1 : 0;
 }
 
+int crclink_json_bool_add(crclink_json_t *j, const char *key, int value) {
+    emit(j, '"');
+    emit_str(j, key);
+    emit_str(j, "\":");
+    emit_str(j, value ? "true" : "false");
+    emit(j, ',');
+    return j->err ? -1 : 0;
+}
+
+#ifdef CRCLINK_JSON_FLOATS
+int crclink_json_float_add(crclink_json_t *j, const char *key, double value) {
+    char num[32];
+    snprintf(num, sizeof num, "%g", value);
+    emit(j, '"');
+    emit_str(j, key);
+    emit_str(j, "\":");
+    emit_str(j, num);
+    emit(j, ',');
+    return j->err ? -1 : 0;
+}
+#endif
+
 int crclink_json_int_list_add(crclink_json_t *j, const char *key, const int *values, size_t count) {
     emit(j, '"');
     emit_str(j, key);

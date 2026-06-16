@@ -29,7 +29,7 @@ test: builder_runner reader_runner
 	./reader_runner
 
 builder_runner: $(BUILDER_SRCS)
-	$(TMPENV) $(CC) $(CFLAGS) $(INCS) $(BUILDER_SRCS) -o builder_runner
+	$(TMPENV) $(CC) $(CFLAGS) -DCRCLINK_JSON_FLOATS $(INCS) $(BUILDER_SRCS) -o builder_runner
 
 # The reader suite is built with floats on so crclink_json_get_float is covered.
 reader_runner: $(READER_SRCS)
