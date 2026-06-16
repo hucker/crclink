@@ -39,15 +39,16 @@ extern "C" {
 /**
  * @brief Verify a frame's CRC against its covered prefix.
  *
- * Computes crc16-xmodem over the bytes from the opening '{' up to and including
- * the comma before the "crc" key, and compares it to the frame's 4-hex-digit crc
- * value. This is the same coverage as crclink's Python decoder, so a frame from
- * crclink.encode_json_frame verifies here and vice versa. Call it before the
- * getters on any frame from an untrusted link.
+ * crclink always appends `"crc":"XXXX"}` as the final field, so this checks that
+ * fixed trailer and computes crc16-xmodem over everything before it (the opening
+ * '{' up to and including the comma before "crc"). It does not parse the payload,
+ * so it verifies any frame shape, flat or nested, and matches crclink's Python
+ * decoder. Call it before the getters on a frame from an untrusted link. (The
+ * getters themselves are flat-only; verification is not.)
  *
- * @param frame NUL-terminated frame text, with no trailing newline.
- * @return 0 if the CRC matches, or -1 if the frame is malformed, has no "crc"
- *         key, the crc value is not a 4-hex string, or the CRC does not match.
+ * @param frame NUL-terminated frame text; a trailing CR/LF is tolerated.
+ * @return 0 if the CRC matches, or -1 if the trailer is malformed or the CRC
+ *         does not match.
  */
 int crclink_json_verify(const char *frame);
 

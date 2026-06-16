@@ -155,40 +155,29 @@ static int parse_hex4(const char *s, int len, uint16_t *out) {
 }
 
 int crclink_json_verify(const char *frame) {
-    jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
-    jsmn_parser p;
-    jsmn_init(&p);
-    int n = jsmn_parse(&p, frame, strlen(frame), toks, CRCLINK_JSON_MAX_TOKENS);
-    if (n < 1 || toks[0].type != JSMN_OBJECT) {
-        return -1;
+    size_t len = strlen(frame);
+    while (len > 0 && (frame[len - 1] == '\n' || frame[len - 1] == '\r')) {
+        len--; /* tolerate a trailing CR/LF from the link */
     }
 
-    int i = 1;
-    while (i + 1 < n) {
-        const jsmntok_t *k = &toks[i];
-        if (k->type != JSMN_STRING) {
-            break;
-        }
-        int vi = i + 1;
-        if (k->end - k->start == 3 && memcmp(frame + k->start, "crc", 3) == 0) {
-            const jsmntok_t *v = &toks[vi];
-            uint16_t claimed;
-            if (v->type != JSMN_STRING ||
-                parse_hex4(frame + v->start, v->end - v->start, &claimed) != 0) {
-                return -1;
-            }
-            /* Prefix: '{' up to and including the comma before the crc key's
-             * opening quote (at k->start - 1), matching the Python decoder. */
-            size_t prefix_len = (size_t)(k->start - 1);
-            uint16_t computed = crc16_xmodem((const uint8_t *)frame, prefix_len);
-            return (computed == claimed) ? 0 : -1;
-        }
-        i = after_value(toks, n, vi);
-        if (i < 0) {
-            return -1;
-        }
+    /* crclink always ends a frame with the fixed 13-byte trailer "crc":"XXXX"},
+     * because the crc is the last top-level field. Check that trailer, parse the
+     * 4-hex value, and CRC everything before it. This does not parse the payload,
+     * so flat and nested frames verify the same way. */
+    const size_t trailer = 13; /* "crc":"XXXX"} */
+    if (len < trailer + 1 || frame[0] != '{') {
+        return -1;
     }
-    return -1; /* no crc field */
+    const char *t = frame + (len - trailer);
+    uint16_t claimed;
+    if (t[0] != '"' || t[1] != 'c' || t[2] != 'r' || t[3] != 'c' || t[4] != '"' || t[5] != ':' ||
+        t[6] != '"' || t[11] != '"' || t[12] != '}' || parse_hex4(t + 7, 4, &claimed) != 0) {
+        return -1;
+    }
+    /* Prefix: '{' up to and including the comma before the trailer (or just '{'
+     * for an empty object), matching the Python decoder's coverage. */
+    uint16_t computed = crc16_xmodem((const uint8_t *)frame, len - trailer);
+    return (computed == claimed) ? 0 : -1;
 }
 
 int crclink_json_get_str(const char *json, const char *key, char *out, size_t outcap) {

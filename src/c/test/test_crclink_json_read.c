@@ -117,6 +117,21 @@ void test_verify_rejects_frame_without_crc(void) {
     TEST_ASSERT_LESS_THAN_INT(0, crclink_json_verify("{\"cmd\":\"x\"}"));
 }
 
+void test_verify_accepts_nested_frame(void) {
+    /* The crc is the trailing field, so verification is independent of payload
+       structure: an MCP-shaped nested frame verifies just like a flat one. */
+    const char *nested = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                         "\"params\":{\"name\":\"x\",\"arguments\":{}},\"crc\":\"4485\"}";
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_verify(nested));
+    /* A frame the C builder itself emits via dict_add (nested object) verifies too. */
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_verify("{\"sub\":{\"k\":1},\"crc\":\"5544\"}"));
+}
+
+void test_verify_tolerates_trailing_newline(void) {
+    TEST_ASSERT_EQUAL_INT(0,
+                          crclink_json_verify("{\"cmd\":\"do something\",\"crc\":\"21f9\"}\r\n"));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_get_str);
@@ -133,5 +148,7 @@ int main(void) {
     RUN_TEST(test_verify_rejects_tampered_payload);
     RUN_TEST(test_verify_rejects_wrong_crc);
     RUN_TEST(test_verify_rejects_frame_without_crc);
+    RUN_TEST(test_verify_accepts_nested_frame);
+    RUN_TEST(test_verify_tolerates_trailing_newline);
     return UNITY_END();
 }
