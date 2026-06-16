@@ -2,11 +2,19 @@
 
 CRC-protected, line-based transport framing for serial-style embedded links.
 
+crclink ships **both sides of the wire**: a Python library for the host and a C firmware companion for the device, so the same frames build, verify, and decode on either end.
+
+- **Host (Python)**: this package. Encode, decode, and verify frames, plus a `crclink` CLI. Install with `uv add crclink`.
+- **Device (C)**: a no-heap, no-runtime-dependency implementation under [src/c/](src/c/). It builds and CRC-stamps frames straight to a serial sink and verifies/reads incoming flat-JSON commands. See [src/c/README.md](src/c/README.md).
+
+Both sides compute CRC-16/XMODEM over the same coverage, so a frame built on one verifies on the other; the test suites cross-check both directions.
+
 ## Features
 
 - JSON line framing with a trailing crc key.
 - Text line framing with trailing CRC suffix.
 - CRC-16/XMODEM validation.
+- Matching Python (host) and C (device) implementations.
 
 ## CRC engine
 
