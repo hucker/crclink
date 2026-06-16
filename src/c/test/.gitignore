@@ -1,2 +1,3 @@
-test_runner
-test_runner.exe
+builder_runner
+reader_runner
+*.exe
