@@ -45,6 +45,24 @@ cat frames | crclink verify-file -                 # read from stdin
 
 `verify-file` skips blank lines, reports each line as `ok` or `FAIL` with its number and reason, prints a `verified X/Y` summary, and exits non-zero if any line fails (so it slots into a shell pipeline). With `auto` (the default) a line starting with `{` is treated as JSON and anything else as text. Use `--quiet` to print only failures and the summary.
 
+## On the device (C)
+
+The firmware receives the same frames: verify the CRC, then read fields by key. Numbers are converted for you, with no heap and no runtime dependencies.
+
+```c
+#include "crclink_json_read.h"
+
+void handle_line(const char *line) {              // {"cmd":"get_voltage 1","crc":"9585"}
+    if (crclink_json_verify(line) != 0) return;   // bad CRC: drop the frame
+    char cmd[32];
+    if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) >= 0) {
+        dispatch(cmd);                            // cmd == "get_voltage 1"
+    }
+}
+```
+
+See [src/c/README.md](src/c/README.md) for transmitting frames, failure handling, and filling a C struct from a command.
+
 ## Install
 
 ```bash
@@ -57,4 +75,3 @@ uv add crclink
 uv sync
 uv run pytest
 ```
-

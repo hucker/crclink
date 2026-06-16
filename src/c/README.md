@@ -49,18 +49,58 @@ Each `*_add` returns 0, or -1 once a sink write has failed. Failure is sticky: a
 
 For a command arriving over the link, verify the CRC, then pull fields by key with typed getters. Numbers are converted for you; values never go through a string detour.
 
+A simple command, frame on the wire `{"cmd":"get_voltage 1","crc":"9585"}`:
+
 ```c
 #include "crclink_json_read.h"
 
-if (crclink_json_verify(line) != 0) return;   // bad CRC: drop the frame
-
-char cmd[20];
-if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) >= 0
-    && strcmp(cmd, "reboot") == 0) {
-    /* ... */
+void handle_line(const char *line) {        // one received frame, NUL-terminated
+    if (crclink_json_verify(line) != 0) {
+        return;                             // bad CRC or malformed: drop it
+    }
+    char cmd[32];
+    if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) < 0) {
+        return;                             // no "cmd" field
+    }
+    dispatch(cmd);                          // cmd == "get_voltage 1"
 }
-long n;
-crclink_json_get_int(line, "n", &n);
+```
+
+On failure everything returns a negative value, so each step is just a branch (nothing throws, nothing is left half-written):
+
+```c
+// {"cmd":"get_voltage 1","crc":"0000"}      CRC does not match the payload
+crclink_json_verify(line);                              // -> -1, reject the frame
+
+crclink_json_get_str(line, "cmd", cmd, sizeof cmd);     // -> -1 if there is no "cmd"
+
+char small[4];
+crclink_json_get_str(line, "cmd", small, sizeof small); // -> -1, value would overflow
+```
+
+A failed `crclink_json_verify` means a corrupted or truncated frame: drop it, or ask the host to resend.
+
+Filling a C struct from a richer command, `{"cmd":"set_pid","ch":1,"en":true,"sp":3.3,"crc":"8161"}`:
+
+```c
+typedef struct {
+    char   name[16];
+    long   channel;
+    int    enabled;     // bool
+    double setpoint;    // needs -DCRCLINK_JSON_FLOATS
+} command_t;
+
+int parse_command(const char *line, command_t *out) {
+    if (crclink_json_verify(line) != 0) {
+        return -1;                          // CRC failed
+    }
+    int bad = 0;
+    bad |= crclink_json_get_str(line, "cmd", out->name, sizeof out->name) < 0;
+    bad |= crclink_json_get_int(line, "ch", &out->channel) < 0;
+    bad |= crclink_json_get_bool(line, "en", &out->enabled) < 0;
+    bad |= crclink_json_get_float(line, "sp", &out->setpoint) < 0;
+    return bad ? -1 : 0;                     // -1 if any field is missing or the wrong type
+}
 ```
 
 `crclink_json_verify` recomputes crc16-xmodem over the frame's covered prefix (the same coverage as the Python decoder) and checks it against the embedded crc, so a frame from `crclink.encode_json_frame` verifies on the device and vice versa. `line` must be NUL-terminated. Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. Floating point is opt-in: compile with `-DCRCLINK_JSON_FLOATS` to get `crclink_json_get_float` (it pulls in `strtod`, which is costly on a soft-float target); integers and the rest never need it. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it for wider frames.
