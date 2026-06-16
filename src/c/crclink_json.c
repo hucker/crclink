@@ -3,121 +3,154 @@
 
 #include "crc16_xmodem.h"
 
-#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
-/* Append text if it fits the capacity; return 0 on success, -1 on overflow.
- * On overflow the buffer is left unchanged (the size check precedes the copy). */
-static int put(char *s, const char *text) {
-    size_t len = strlen(s);
-    size_t add = strlen(text);
-    if (len + add + 1 > CRCLINK_JSON_CAP) {
-        return -1;
+/* Emit one prefix byte: send to the sink, then fold into the running CRC.
+ * No-op once err latches; the CRC is updated only for a byte the sink accepted,
+ * so it always covers exactly the bytes that reached the output. */
+static void emit(crclink_json_t *j, char byte) {
+    if (j->err) {
+        return;
     }
-    memcpy(s + len, text, add + 1);
-    return 0;
+    uint8_t b = (uint8_t)byte;
+    if (j->sink(j->ctx, b)) {
+        j->err = -1;
+        return;
+    }
+    j->crc = crc16_xmodem_update(j->crc, &b, 1);
+    j->total++;
 }
 
-/* Append a string with JSON escaping for the structural and control bytes. */
-static int put_escaped(char *s, const char *text) {
+/* Emit one trailer byte: send to the sink WITHOUT updating the CRC. */
+static void emit_raw(crclink_json_t *j, char byte) {
+    if (j->err) {
+        return;
+    }
+    if (j->sink(j->ctx, (uint8_t)byte)) {
+        j->err = -1;
+        return;
+    }
+    j->total++;
+}
+
+static void emit_str(crclink_json_t *j, const char *text) {
+    for (; *text; text++) {
+        emit(j, *text);
+    }
+}
+
+static void emit_raw_str(crclink_json_t *j, const char *text) {
+    for (; *text; text++) {
+        emit_raw(j, *text);
+    }
+}
+
+/* Emit a string with JSON escaping for the structural and control bytes. */
+static void emit_escaped(crclink_json_t *j, const char *text) {
     for (; *text; text++) {
         unsigned char c = (unsigned char)*text;
-        char buf[7];
-        const char *piece;
         switch (c) {
-            case '"':  piece = "\\\""; break;
-            case '\\': piece = "\\\\"; break;
-            case '\b': piece = "\\b";  break;
-            case '\f': piece = "\\f";  break;
-            case '\n': piece = "\\n";  break;
-            case '\r': piece = "\\r";  break;
-            case '\t': piece = "\\t";  break;
+            case '"':  emit_str(j, "\\\""); break;
+            case '\\': emit_str(j, "\\\\"); break;
+            case '\b': emit_str(j, "\\b");  break;
+            case '\f': emit_str(j, "\\f");  break;
+            case '\n': emit_str(j, "\\n");  break;
+            case '\r': emit_str(j, "\\r");  break;
+            case '\t': emit_str(j, "\\t");  break;
             default:
                 if (c < 0x20) {
-                    snprintf(buf, sizeof buf, "\\u%04x", c);
+                    char u[7];
+                    snprintf(u, sizeof u, "\\u%04x", c);
+                    emit_str(j, u);
                 } else {
-                    buf[0] = (char)c;
-                    buf[1] = '\0';
+                    emit(j, (char)c);
                 }
-                piece = buf;
-        }
-        if (put(s, piece)) {
-            return -1;
         }
     }
-    return 0;
 }
 
-int json_start(char *s) {
-    if (CRCLINK_JSON_CAP < 2) {
+int crclink_json_buf_sink(void *ctx, uint8_t byte) {
+    crclink_json_buf_t *b = (crclink_json_buf_t *)ctx;
+    if (b->len + 1 >= b->cap) {  /* reserve one byte for the NUL terminator */
         return -1;
     }
-    s[0] = '{';
-    s[1] = '\0';
+    b->buf[b->len++] = (char)byte;
+    b->buf[b->len] = '\0';
     return 0;
 }
 
-int json_str_add(char *s, const char *key, const char *value) {
-    size_t mark = strlen(s);
-    if (put(s, "\"") || put(s, key) || put(s, "\":\"") || put_escaped(s, value) || put(s, "\",")) {
-        s[mark] = '\0';  /* roll back any partial write */
-        return -1;
+int crclink_json_start(crclink_json_t *j, crclink_json_sink sink, void *ctx) {
+    j->sink = sink;
+    j->ctx = ctx;
+    j->crc = crc16_xmodem_init();
+    j->err = 0;
+    j->total = 0;
+    emit(j, '{');
+    return j->err ? -1 : 0;
+}
+
+int crclink_json_start_buf(crclink_json_t *j, crclink_json_buf_t *b, char *buf, size_t cap) {
+    b->buf = buf;
+    b->cap = cap;
+    b->len = 0;
+    if (cap > 0) {
+        buf[0] = '\0';
     }
-    return 0;
+    return crclink_json_start(j, crclink_json_buf_sink, b);
 }
 
-int json_int_add(char *s, const char *key, long value) {
+int crclink_json_str_add(crclink_json_t *j, const char *key, const char *value) {
+    emit(j, '"');
+    emit_str(j, key);
+    emit_str(j, "\":\"");
+    emit_escaped(j, value);
+    emit_str(j, "\",");
+    return j->err ? -1 : 0;
+}
+
+int crclink_json_int_add(crclink_json_t *j, const char *key, long value) {
     char num[24];
     snprintf(num, sizeof num, "%ld", value);
-    size_t mark = strlen(s);
-    if (put(s, "\"") || put(s, key) || put(s, "\":") || put(s, num) || put(s, ",")) {
-        s[mark] = '\0';
-        return -1;
-    }
-    return 0;
+    emit(j, '"');
+    emit_str(j, key);
+    emit_str(j, "\":");
+    emit_str(j, num);
+    emit(j, ',');
+    return j->err ? -1 : 0;
 }
 
-int json_int_list_add(char *s, const char *key, const int *values, size_t count) {
-    size_t mark = strlen(s);
-    if (put(s, "\"") || put(s, key) || put(s, "\":[")) {
-        s[mark] = '\0';
-        return -1;
-    }
+int crclink_json_int_list_add(crclink_json_t *j, const char *key, const int *values, size_t count) {
+    emit(j, '"');
+    emit_str(j, key);
+    emit_str(j, "\":[");
     for (size_t i = 0; i < count; i++) {
         char num[24];
         snprintf(num, sizeof num, "%d", values[i]);
-        if (put(s, num) || (i + 1 < count && put(s, ","))) {
-            s[mark] = '\0';  /* roll back the whole field */
-            return -1;
+        emit_str(j, num);
+        if (i + 1 < count) {
+            emit(j, ',');
         }
     }
-    if (put(s, "],")) {
-        s[mark] = '\0';
-        return -1;
-    }
-    return 0;
+    emit_str(j, "],");
+    return j->err ? -1 : 0;
 }
 
-int json_dict_add(char *s, const char *key, const char *json_object) {
-    size_t mark = strlen(s);
-    if (put(s, "\"") || put(s, key) || put(s, "\":") || put(s, json_object) || put(s, ",")) {
-        s[mark] = '\0';
-        return -1;
-    }
-    return 0;
+int crclink_json_dict_add(crclink_json_t *j, const char *key, const char *json_object) {
+    emit(j, '"');
+    emit_str(j, key);
+    emit_str(j, "\":");
+    emit_str(j, json_object);
+    emit(j, ',');
+    return j->err ? -1 : 0;
 }
 
-int json_end(char *s) {
-    /* The CRC covers the buffer as built: '{' through the trailing comma
-     * before "crc" (or just '{' for an empty object). */
-    size_t mark = strlen(s);
-    uint16_t crc = crc16_xmodem((const uint8_t *)s, mark);
+int crclink_json_end(crclink_json_t *j) {
+    if (j->err) {
+        return -1;
+    }
+    uint16_t crc = crc16_xmodem_finalize(j->crc);
     char trailer[16];
     snprintf(trailer, sizeof trailer, "\"crc\":\"%04x\"}", crc);
-    if (put(s, trailer)) {
-        s[mark] = '\0';
-        return -1;
-    }
-    return (int)strlen(s);
+    emit_raw_str(j, trailer);
+    return j->err ? -1 : (int)j->total;
 }

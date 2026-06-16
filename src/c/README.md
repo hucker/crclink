@@ -1,6 +1,6 @@
 # crclink firmware (C)
 
-The firmware-side companion to the Python package: build a crclink CRC-framed JSON line into a fixed buffer, no heap. Vendor these files into your firmware tree.
+The firmware-side companion to the Python package. It streams a crclink CRC-framed JSON line to any output without allocating: each byte goes to a per-byte sink callback, so you can build into a buffer or write straight out a serial port without ever holding the whole frame in RAM. Vendor these files into your firmware tree.
 
 This directory is not part of the Python wheel (the wheel ships only `src/crclink`). See [../../docs/crcglot-integration.md](../../docs/crcglot-integration.md) for the host vs. firmware split.
 
@@ -11,19 +11,37 @@ This directory is not part of the Python wheel (the wheel ships only `src/crclin
 
 ## Use
 
+Into a fixed buffer:
+
 ```c
 #include "crclink_json.h"
 
-char s[CRCLINK_JSON_CAP];
-json_start(s);
-json_str_add(s, "msg", "hi");
-json_int_add(s, "v", 12);
+char s[100];
+crclink_json_t j;
+crclink_json_buf_t b;
+crclink_json_start_buf(&j, &b, s, sizeof s);
+crclink_json_str_add(&j, "msg", "hi");
+crclink_json_int_add(&j, "v", 12);
 int xs[] = {1, 2, 3, 4, 5};
-json_int_list_add(s, "xs", xs, 5);
-json_end(s);                 // -> {"msg":"hi","v":12,"xs":[1,2,3,4,5],"crc":"...."}
+crclink_json_int_list_add(&j, "xs", xs, 5);
+crclink_json_end(&j);        // s -> {"msg":"hi","v":12,"xs":[1,2,3,4,5],"crc":"...."}
 ```
 
-The buffer must be `CRCLINK_JSON_CAP` bytes (default 100; override the macro before including). Each `*_add` returns 0 on success or -1 if the field would overflow, leaving the buffer a valid partial frame. The frame is a single-level object whose CRC is computed exactly as the Python encoder does, so frames built here decode with `crclink.decode_json_frame` on the host.
+Straight out a serial port: supply your own per-byte sink. Nothing buffers the frame.
+
+```c
+static int uart_sink(void *ctx, uint8_t byte) {
+    uart_putc(byte);         // your driver
+    return 0;                // non-zero would mark the frame failed
+}
+
+crclink_json_t j;
+crclink_json_start(&j, uart_sink, NULL);
+crclink_json_str_add(&j, "msg", "hi");
+crclink_json_end(&j);        // bytes stream out as they are built
+```
+
+Each `*_add` returns 0, or -1 once a sink write has failed. Failure is sticky: after it every call is a no-op and `crclink_json_end` writes no trailer, so a truncated frame has no `"crc"` key and the host decoder rejects it instead of accepting a partial-prefix CRC. `crclink_json_end` returns the frame length, or -1 if it overflowed. The frame is a single-level object whose CRC matches the Python encoder byte for byte, so frames built here decode with `crclink.decode_json_frame` on the host.
 
 ## Build
 
