@@ -33,6 +33,17 @@ crclink_json_end(&j);
 // s -> {"status":"ready","code":0,"ok":true,"v":3.3,"xs":[1,2,3],"meta":{"n":1},"crc":"...."}
 ```
 
+Lists come in two forms. For a homogeneous array you already hold, use the typed adders: `int_list_add`, `bool_list_add`, `str_list_add`, and `float_list_add` (behind `-DCRCLINK_JSON_FLOATS`). For a mixed/polymorphic list, build it element by element:
+
+```c
+crclink_json_list_open(&j, "items");
+crclink_json_list_int(&j, 1);
+crclink_json_list_str(&j, "two");
+crclink_json_list_bool(&j, 1);
+crclink_json_list_float(&j, 3.5);   // -DCRCLINK_JSON_FLOATS
+crclink_json_list_close(&j);        // -> "items":[1,"two",true,3.5],
+```
+
 Straight out a serial port: supply your own per-byte sink. Nothing buffers the frame.
 
 ```c

@@ -66,9 +66,10 @@ typedef int (*crclink_json_sink)(void *ctx, uint8_t byte);
 typedef struct {
     crclink_json_sink sink;
     void *ctx;
-    uint16_t crc; /**< running crc16-xmodem over the prefix */
-    int err;      /**< sticky: set on the first failed sink write */
-    size_t total; /**< bytes emitted so far (the frame length) */
+    uint16_t crc;   /**< running crc16-xmodem over the prefix */
+    int err;        /**< sticky: set on the first failed sink write */
+    size_t total;   /**< bytes emitted so far (the frame length) */
+    int list_first; /**< inside a scoped list: no leading comma emitted yet */
 } crclink_json_t;
 
 /**
@@ -149,6 +150,60 @@ int crclink_json_float_add(crclink_json_t *j, const char *key, double value);
  * @return 0, or -1 once the frame has overflowed.
  */
 int crclink_json_int_list_add(crclink_json_t *j, const char *key, const int *values, size_t count);
+
+/**
+ * @brief Add a "key":[true,false,...] field from a count-element array of flags
+ *        (each non-zero element is true). @p count 0 yields [].
+ * @return 0, or -1 once the frame has overflowed.
+ */
+int crclink_json_bool_list_add(crclink_json_t *j, const char *key, const int *values, size_t count);
+
+/**
+ * @brief Add a "key":["a","b",...] field from a count-element array of C strings
+ *        (each JSON-escaped). @p count 0 yields [].
+ * @return 0, or -1 once the frame has overflowed.
+ */
+int crclink_json_str_list_add(crclink_json_t *j, const char *key, const char *const *values,
+                              size_t count);
+
+#ifdef CRCLINK_JSON_FLOATS
+/**
+ * @brief Add a "key":[1.5,...] field from a count-element double array. Compiled
+ *        only when CRCLINK_JSON_FLOATS is defined. @p count 0 yields [].
+ * @return 0, or -1 once the frame has overflowed.
+ */
+int crclink_json_float_list_add(crclink_json_t *j, const char *key, const double *values,
+                                size_t count);
+#endif
+
+/**
+ * @brief Open a "key":[ ... ] array to fill element by element.
+ *
+ * Append elements with crclink_json_list_int / _bool / _str / _float (mix types
+ * freely for a polymorphic list), then close with crclink_json_list_close. Lists
+ * do not nest via this API (one level); use the typed *_list_add for arrays you
+ * already hold.
+ *
+ * @return 0, or -1 once the frame has overflowed.
+ */
+int crclink_json_list_open(crclink_json_t *j, const char *key);
+
+/** @brief Append an integer element to the open list. @return 0, or -1 on overflow. */
+int crclink_json_list_int(crclink_json_t *j, long value);
+
+/** @brief Append a true/false element to the open list. @return 0, or -1 on overflow. */
+int crclink_json_list_bool(crclink_json_t *j, int value);
+
+/** @brief Append a JSON-escaped string element to the open list. @return 0, or -1 on overflow. */
+int crclink_json_list_str(crclink_json_t *j, const char *value);
+
+#ifdef CRCLINK_JSON_FLOATS
+/** @brief Append a double element to the open list (CRCLINK_JSON_FLOATS only). @return 0, or -1. */
+int crclink_json_list_float(crclink_json_t *j, double value);
+#endif
+
+/** @brief Close the open list (writes ] and the field separator). @return 0, or -1 on overflow. */
+int crclink_json_list_close(crclink_json_t *j);
 
 /**
  * @brief Add a "key":<json_object> field verbatim (no escaping, no validation).

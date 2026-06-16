@@ -77,6 +77,58 @@ void test_float(void) {
     TEST_ASSERT_EQUAL_STRING("{\"x\":3.14,\"crc\":\"e5d1\"}", s);
 }
 
+void test_str_list(void) {
+    char s[100];
+    crclink_json_t j;
+    crclink_json_buf_t b;
+    const char *tags[] = {"a", "b", "c"};
+    crclink_json_start_buf(&j, &b, s, sizeof s);
+    crclink_json_str_list_add(&j, "tags", tags, 3);
+    crclink_json_end(&j);
+
+    TEST_ASSERT_EQUAL_STRING("{\"tags\":[\"a\",\"b\",\"c\"],\"crc\":\"3faa\"}", s);
+}
+
+void test_bool_list(void) {
+    char s[100];
+    crclink_json_t j;
+    crclink_json_buf_t b;
+    int flags[] = {1, 0, 1};
+    crclink_json_start_buf(&j, &b, s, sizeof s);
+    crclink_json_bool_list_add(&j, "flags", flags, 3);
+    crclink_json_end(&j);
+
+    TEST_ASSERT_EQUAL_STRING("{\"flags\":[true,false,true],\"crc\":\"6f9c\"}", s);
+}
+
+void test_float_list(void) {
+    char s[100];
+    crclink_json_t j;
+    crclink_json_buf_t b;
+    double xs[] = {1.5, 2.5};
+    crclink_json_start_buf(&j, &b, s, sizeof s);
+    crclink_json_float_list_add(&j, "xs", xs, 2);
+    crclink_json_end(&j);
+
+    TEST_ASSERT_EQUAL_STRING("{\"xs\":[1.5,2.5],\"crc\":\"f7f6\"}", s);
+}
+
+void test_polymorphic_list(void) {
+    char s[100];
+    crclink_json_t j;
+    crclink_json_buf_t b;
+    crclink_json_start_buf(&j, &b, s, sizeof s);
+    crclink_json_list_open(&j, "items");
+    crclink_json_list_int(&j, 1);
+    crclink_json_list_str(&j, "two");
+    crclink_json_list_bool(&j, 1);
+    crclink_json_list_float(&j, 3.5);
+    crclink_json_list_close(&j);
+    crclink_json_end(&j);
+
+    TEST_ASSERT_EQUAL_STRING("{\"items\":[1,\"two\",true,3.5],\"crc\":\"0a42\"}", s);
+}
+
 void test_string_escaping_quote_and_backslash(void) {
     char s[100];
     crclink_json_t j;
@@ -167,6 +219,10 @@ int main(void) {
     RUN_TEST(test_empty_object);
     RUN_TEST(test_bool);
     RUN_TEST(test_float);
+    RUN_TEST(test_str_list);
+    RUN_TEST(test_bool_list);
+    RUN_TEST(test_float_list);
+    RUN_TEST(test_polymorphic_list);
     RUN_TEST(test_string_escaping_quote_and_backslash);
     RUN_TEST(test_backspace_uses_short_escape);
     RUN_TEST(test_nested_dict_verbatim);

@@ -85,6 +85,7 @@ int crclink_json_start(crclink_json_t *j, crclink_json_sink sink, void *ctx) {
     j->crc = crc16_xmodem_init();
     j->err = 0;
     j->total = 0;
+    j->list_first = 0;
     emit(j, '{');
     return j->err ? -1 : 0;
 }
@@ -141,21 +142,96 @@ int crclink_json_float_add(crclink_json_t *j, const char *key, double value) {
 }
 #endif
 
-int crclink_json_int_list_add(crclink_json_t *j, const char *key, const int *values, size_t count) {
+/* Emit the inter-element comma for a scoped list (none before the first). */
+static void list_sep(crclink_json_t *j) {
+    if (!j->list_first) {
+        emit(j, ',');
+    }
+    j->list_first = 0;
+}
+
+int crclink_json_list_open(crclink_json_t *j, const char *key) {
     emit(j, '"');
     emit_str(j, key);
     emit_str(j, "\":[");
-    for (size_t i = 0; i < count; i++) {
-        char num[24];
-        snprintf(num, sizeof num, "%d", values[i]);
-        emit_str(j, num);
-        if (i + 1 < count) {
-            emit(j, ',');
-        }
-    }
+    j->list_first = 1;
+    return j->err ? -1 : 0;
+}
+
+int crclink_json_list_int(crclink_json_t *j, long value) {
+    char num[24];
+    snprintf(num, sizeof num, "%ld", value);
+    list_sep(j);
+    emit_str(j, num);
+    return j->err ? -1 : 0;
+}
+
+int crclink_json_list_bool(crclink_json_t *j, int value) {
+    list_sep(j);
+    emit_str(j, value ? "true" : "false");
+    return j->err ? -1 : 0;
+}
+
+int crclink_json_list_str(crclink_json_t *j, const char *value) {
+    list_sep(j);
+    emit(j, '"');
+    emit_escaped(j, value);
+    emit(j, '"');
+    return j->err ? -1 : 0;
+}
+
+#ifdef CRCLINK_JSON_FLOATS
+int crclink_json_list_float(crclink_json_t *j, double value) {
+    char num[32];
+    snprintf(num, sizeof num, "%g", value);
+    list_sep(j);
+    emit_str(j, num);
+    return j->err ? -1 : 0;
+}
+#endif
+
+int crclink_json_list_close(crclink_json_t *j) {
     emit_str(j, "],");
     return j->err ? -1 : 0;
 }
+
+/* Typed homogeneous-list convenience: open, append each element, close. */
+int crclink_json_int_list_add(crclink_json_t *j, const char *key, const int *values, size_t count) {
+    crclink_json_list_open(j, key);
+    for (size_t i = 0; i < count; i++) {
+        crclink_json_list_int(j, values[i]);
+    }
+    return crclink_json_list_close(j);
+}
+
+int crclink_json_bool_list_add(crclink_json_t *j, const char *key, const int *values,
+                               size_t count) {
+    crclink_json_list_open(j, key);
+    for (size_t i = 0; i < count; i++) {
+        crclink_json_list_bool(j, values[i]);
+    }
+    return crclink_json_list_close(j);
+}
+
+int crclink_json_str_list_add(crclink_json_t *j, const char *key, const char *const *values,
+                              size_t count) {
+    crclink_json_list_open(j, key);
+    for (size_t i = 0; i < count; i++) {
+        crclink_json_list_str(j, values[i]);
+    }
+    return crclink_json_list_close(j);
+}
+
+#ifdef CRCLINK_JSON_FLOATS
+int crclink_json_float_list_add(crclink_json_t *j, const char *key, const double *values,
+                                size_t count) {
+    crclink_json_list_open(j, key);
+    for (size_t i = 0; i < count; i++) {
+        crclink_json_list_float(j, values[i]);
+    }
+    return crclink_json_list_close(j);
+}
+#endif
 
 int crclink_json_dict_add(crclink_json_t *j, const char *key, const char *json_object) {
     emit(j, '"');
