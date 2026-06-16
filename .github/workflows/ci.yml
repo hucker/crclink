@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Sync dependencies
+        run: uv sync
+      - name: Run pytest
+        run: uv run pytest -q
+
+  c:
+    name: C tests (Unity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run the Unity suite
+        run: make -C src/c/test test
