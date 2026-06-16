@@ -118,7 +118,21 @@ int parse_command(const char *line, command_t *out) {
 }
 ```
 
-`crclink_json_verify` recomputes crc16-xmodem over the frame's covered prefix (the same coverage as the Python decoder) and checks it against the embedded crc, so a frame from `crclink.encode_json_frame` verifies on the device and vice versa. `line` must be NUL-terminated. Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. Floating point is opt-in: compile with `-DCRCLINK_JSON_FLOATS` to get `crclink_json_get_float` (it pulls in `strtod`, which is costly on a soft-float target); integers and the rest never need it. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it for wider frames.
+Nested values (when a command carries an object, like a `tools/call` from an MCP-server host): the scalar getters skip past nested values to reach top-level keys, and for a nested value itself you get its byte span with `crclink_json_get_raw` and re-read that span with the `_n` getters, one object level per call:
+
+```c
+const char *params;
+int plen;
+if (crclink_json_get_raw(line, "params", &params, &plen) == 0) {
+    char name[16];
+    crclink_json_get_str_n(params, plen, "name", name, sizeof name);
+    // descend again: crclink_json_get_raw_n(params, plen, "arguments", ...)
+}
+```
+
+`crclink_json_verify` recomputes crc16-xmodem over the frame's covered prefix (the same coverage as the Python decoder) and checks it against the embedded crc, so a frame from `crclink.encode_json_frame` verifies on the device and vice versa. `line` must be NUL-terminated (or use the `_n` getters with a length). Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. Floating point is opt-in: compile with `-DCRCLINK_JSON_FLOATS` to get `crclink_json_get_float` (it pulls in `strtod`, which is costly on a soft-float target); integers and the rest never need it. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it in your build for nested or wide frames.
+
+The unused getters and adders are stripped from the image by the linker (`-ffunction-sections -fdata-sections -Wl,--gc-sections`), so a firmware that only reads a string command and writes a string result carries only that path: there are no per-feature compile flags to manage, beyond `CRCLINK_JSON_FLOATS` (which gates the `strtod` dependency) and the token budget.
 
 ## Build
 

@@ -86,13 +86,47 @@ void test_buffer_too_small_returns_negative(void) {
     TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_str(CMD, "cmd", out, sizeof out));
 }
 
-void test_nesting_beyond_flat_fails_closed(void) {
-    /* A value nested deeper than one level is outside the flat contract. The
-       reader must fail closed (-1), not step into it and return an inner value
-       (regression: after_value used to mis-size nested values). */
-    const char *deep = "{\"arr\":[{\"x\":99}],\"x\":5,\"crc\":\"0000\"}";
+void test_skips_nested_value_to_reach_later_key(void) {
+    /* The walk skips a nested value (the "arr" array of objects) to reach the
+       top-level "x":5; the inner x:99 is not top-level and must not be returned. */
+    const char *frame = "{\"arr\":[{\"x\":99}],\"x\":5,\"crc\":\"0000\"}";
     long v = 0;
-    TEST_ASSERT_LESS_THAN_INT(0, crclink_json_get_int(deep, "x", &v));
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_get_int(frame, "x", &v));
+    TEST_ASSERT_EQUAL_INT(5, v);
+}
+
+void test_reads_nested_via_get_raw(void) {
+    /* MCP-shaped frame: get the nested params span, then read its fields, then
+       descend once more into params.arguments. Built at MAX_TOKENS=32. */
+    const char *frame = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                        "\"params\":{\"name\":\"set\",\"arguments\":{\"ch\":2,\"on\":true}},"
+                        "\"crc\":\"638c\"}";
+    /* top-level scalars read past the nested params */
+    long id = 0;
+    char method[16];
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_get_int(frame, "id", &id));
+    TEST_ASSERT_EQUAL_INT(1, id);
+    TEST_ASSERT_TRUE(crclink_json_get_str(frame, "method", method, sizeof method) >= 0);
+    TEST_ASSERT_EQUAL_STRING("tools/call", method);
+
+    /* descend into params, then params.arguments */
+    const char *params;
+    int plen;
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_get_raw(frame, "params", &params, &plen));
+    char name[16];
+    TEST_ASSERT_TRUE(crclink_json_get_str_n(params, (size_t)plen, "name", name, sizeof name) >= 0);
+    TEST_ASSERT_EQUAL_STRING("set", name);
+
+    const char *args;
+    int alen;
+    TEST_ASSERT_EQUAL_INT(0,
+                          crclink_json_get_raw_n(params, (size_t)plen, "arguments", &args, &alen));
+    long ch = 0;
+    int on = 0;
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_get_int_n(args, (size_t)alen, "ch", &ch));
+    TEST_ASSERT_EQUAL_INT(2, ch);
+    TEST_ASSERT_EQUAL_INT(0, crclink_json_get_bool_n(args, (size_t)alen, "on", &on));
+    TEST_ASSERT_EQUAL_INT(1, on);
 }
 
 void test_verify_accepts_valid_frames(void) {
@@ -143,7 +177,8 @@ int main(void) {
     RUN_TEST(test_missing_key_returns_negative);
     RUN_TEST(test_wrong_type_returns_negative);
     RUN_TEST(test_buffer_too_small_returns_negative);
-    RUN_TEST(test_nesting_beyond_flat_fails_closed);
+    RUN_TEST(test_skips_nested_value_to_reach_later_key);
+    RUN_TEST(test_reads_nested_via_get_raw);
     RUN_TEST(test_verify_accepts_valid_frames);
     RUN_TEST(test_verify_rejects_tampered_payload);
     RUN_TEST(test_verify_rejects_wrong_crc);

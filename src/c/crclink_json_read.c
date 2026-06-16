@@ -13,58 +13,34 @@
 #define CRCLINK_JSON_MAX_TOKENS 16
 #endif
 
-/* Index just past a value token, or -1 if the value nests deeper than this flat
- * reader supports (the caller then fails closed). A scalar is one token; a flat
- * array of S scalars is 1 + S; a flat object of S scalar pairs is 1 + 2*S.
- * jsmn's size is the immediate child/pair count, not the recursive span, so a
- * value with a non-scalar child cannot be sized here without recursion: reject
- * it rather than mis-step into it. */
-static int after_value(const jsmntok_t *toks, int n, int vi) {
-    jsmntok_t v = toks[vi];
-    int children;
-    if (v.type == JSMN_ARRAY) {
-        children = v.size;
-    } else if (v.type == JSMN_OBJECT) {
-        children = 2 * v.size;
-    } else {
-        return vi + 1; /* scalar */
-    }
-    int i = vi + 1;
-    for (int c = 0; c < children; c++) {
-        if (i >= n) {
-            return -1; /* truncated token stream */
-        }
-        if (toks[i].type == JSMN_ARRAY || toks[i].type == JSMN_OBJECT) {
-            return -1; /* deeper than this flat reader supports: fail closed */
-        }
-        i++;
-    }
-    return i;
-}
-
-/* Parse json and return the token index of key's value, or -1 if not found. */
-static int find_value(const char *json, const char *key, jsmntok_t *toks) {
+/* Parse json[0..len) and return the token index of key's value at the top level,
+ * or -1 if not found / parse error. A value's whole subtree is skipped by byte
+ * range (the next sibling is the first token starting at or after this value's
+ * end), so nested values between { and the key are stepped over correctly,
+ * iteratively, at any depth, no recursion. */
+static int find_value_n(const char *json, size_t len, const char *key, jsmntok_t *toks) {
     jsmn_parser p;
     jsmn_init(&p);
-    int n = jsmn_parse(&p, json, strlen(json), toks, CRCLINK_JSON_MAX_TOKENS);
+    int n = jsmn_parse(&p, json, len, toks, CRCLINK_JSON_MAX_TOKENS);
     if (n < 1 || toks[0].type != JSMN_OBJECT) {
         return -1;
     }
 
     size_t keylen = strlen(key);
     int i = 1;
-    while (i + 1 < n) {
+    while (i < n) {
         const jsmntok_t *k = &toks[i];
-        if (k->type != JSMN_STRING) {
-            break; /* malformed for a flat object */
+        if (k->type != JSMN_STRING || i + 1 >= n) {
+            break;
         }
         int vi = i + 1;
         if ((size_t)(k->end - k->start) == keylen && memcmp(json + k->start, key, keylen) == 0) {
             return vi;
         }
-        i = after_value(toks, n, vi);
-        if (i < 0) {
-            return -1; /* value too deep to step over: fail closed */
+        int end = toks[vi].end;
+        i = vi + 1;
+        while (i < n && toks[i].start < end) {
+            i++; /* skip this value's whole subtree */
         }
     }
     return -1;
@@ -180,21 +156,26 @@ int crclink_json_verify(const char *frame) {
     return (computed == claimed) ? 0 : -1;
 }
 
-int crclink_json_get_str(const char *json, const char *key, char *out, size_t outcap) {
+int crclink_json_get_str_n(const char *json, size_t len, const char *key, char *out,
+                           size_t outcap) {
     if (outcap == 0) {
         return -1;
     }
     jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
-    int vi = find_value(json, key, toks);
+    int vi = find_value_n(json, len, key, toks);
     if (vi < 0 || toks[vi].type != JSMN_STRING) {
         return -1;
     }
     return copy_unescaped(json + toks[vi].start, toks[vi].end - toks[vi].start, out, outcap);
 }
 
-int crclink_json_get_int(const char *json, const char *key, long *out) {
+int crclink_json_get_str(const char *json, const char *key, char *out, size_t outcap) {
+    return crclink_json_get_str_n(json, strlen(json), key, out, outcap);
+}
+
+int crclink_json_get_int_n(const char *json, size_t len, const char *key, long *out) {
     jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
-    int vi = find_value(json, key, toks);
+    int vi = find_value_n(json, len, key, toks);
     if (vi < 0 || toks[vi].type != JSMN_PRIMITIVE) {
         return -1;
     }
@@ -206,29 +187,55 @@ int crclink_json_get_int(const char *json, const char *key, long *out) {
     return 0;
 }
 
-int crclink_json_get_bool(const char *json, const char *key, int *out) {
+int crclink_json_get_int(const char *json, const char *key, long *out) {
+    return crclink_json_get_int_n(json, strlen(json), key, out);
+}
+
+int crclink_json_get_bool_n(const char *json, size_t len, const char *key, int *out) {
     jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
-    int vi = find_value(json, key, toks);
+    int vi = find_value_n(json, len, key, toks);
     if (vi < 0 || toks[vi].type != JSMN_PRIMITIVE) {
         return -1;
     }
     const char *s = json + toks[vi].start;
-    int len = toks[vi].end - toks[vi].start;
-    if (len == 4 && memcmp(s, "true", 4) == 0) {
+    int tlen = toks[vi].end - toks[vi].start;
+    if (tlen == 4 && memcmp(s, "true", 4) == 0) {
         *out = 1;
         return 0;
     }
-    if (len == 5 && memcmp(s, "false", 5) == 0) {
+    if (tlen == 5 && memcmp(s, "false", 5) == 0) {
         *out = 0;
         return 0;
     }
     return -1;
 }
 
-#ifdef CRCLINK_JSON_FLOATS
-int crclink_json_get_float(const char *json, const char *key, double *out) {
+int crclink_json_get_bool(const char *json, const char *key, int *out) {
+    return crclink_json_get_bool_n(json, strlen(json), key, out);
+}
+
+/* Return the byte span of key's value (any type, including a nested {...}/[...]).
+ * The span is valid JSON, so a nested object can be re-read with the _n getters. */
+int crclink_json_get_raw_n(const char *json, size_t len, const char *key, const char **start,
+                           int *out_len) {
     jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
-    int vi = find_value(json, key, toks);
+    int vi = find_value_n(json, len, key, toks);
+    if (vi < 0) {
+        return -1;
+    }
+    *start = json + toks[vi].start;
+    *out_len = toks[vi].end - toks[vi].start;
+    return 0;
+}
+
+int crclink_json_get_raw(const char *json, const char *key, const char **start, int *out_len) {
+    return crclink_json_get_raw_n(json, strlen(json), key, start, out_len);
+}
+
+#ifdef CRCLINK_JSON_FLOATS
+int crclink_json_get_float_n(const char *json, size_t len, const char *key, double *out) {
+    jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
+    int vi = find_value_n(json, len, key, toks);
     if (vi < 0 || toks[vi].type != JSMN_PRIMITIVE) {
         return -1;
     }
@@ -238,5 +245,9 @@ int crclink_json_get_float(const char *json, const char *key, double *out) {
     }
     *out = strtod(s, NULL);
     return 0;
+}
+
+int crclink_json_get_float(const char *json, const char *key, double *out) {
+    return crclink_json_get_float_n(json, strlen(json), key, out);
 }
 #endif

@@ -17,11 +17,14 @@
  * crclink_json_get_int(line, "n", &n);
  * @endcode
  *
- * @p json must be NUL-terminated. Each getter parses on its own, which is cheap
- * for short command lines. Values may be scalars, or one-level arrays/objects of
- * scalars; a value nested deeper than that makes a getter return -1 (fail
- * closed). The token budget is CRCLINK_JSON_MAX_TOKENS (default 16; raise it
- * before including for wider frames; it sizes a stack array of ~16 bytes each).
+ * @p json must be NUL-terminated (or use the _n variants with an explicit
+ * length). Each getter parses on its own, cheap for short command lines. The
+ * scalar getters return a top-level scalar by key and skip over any nested
+ * values in between; for a nested object/array value, get its byte span with
+ * crclink_json_get_raw and re-read that span with the _n getters (one object
+ * level per call, no recursion). The token budget is CRCLINK_JSON_MAX_TOKENS
+ * (default 16; raise it in your build for nested or wide frames; it sizes a
+ * stack array of ~16 bytes per token).
  *
  * @note Floating-point support is opt-in: define CRCLINK_JSON_FLOATS to compile
  *       crclink_json_get_float (it pulls in strtod, which is costly on a
@@ -43,8 +46,7 @@ extern "C" {
  * fixed trailer and computes crc16-xmodem over everything before it (the opening
  * '{' up to and including the comma before "crc"). It does not parse the payload,
  * so it verifies any frame shape, flat or nested, and matches crclink's Python
- * decoder. Call it before the getters on a frame from an untrusted link. (The
- * getters themselves are flat-only; verification is not.)
+ * decoder. Call it before the getters on a frame from an untrusted link.
  *
  * @param frame NUL-terminated frame text; a trailing CR/LF is tolerated.
  * @return 0 if the CRC matches, or -1 if the trailer is malformed or the CRC
@@ -96,6 +98,41 @@ int crclink_json_get_bool(const char *json, const char *key, int *out);
  * @return 0 on success, or -1 if the key is absent or its value is not a number.
  */
 int crclink_json_get_float(const char *json, const char *key, double *out);
+#endif
+
+/* --- Nested reads ---
+ * Get a value's raw byte span with crclink_json_get_raw, then re-read that span
+ * (which is valid JSON) with the _n getters, which take an explicit length
+ * instead of requiring NUL-termination. One object level per call, no recursion.
+ * Reaching nested values needs CRCLINK_JSON_MAX_TOKENS large enough for the
+ * whole frame; raise it in your build. */
+
+/**
+ * @brief Byte span of @p key's value, any type (including a nested object/array).
+ * @param json  NUL-terminated JSON object text.
+ * @param key   key to look up.
+ * @param start receives a pointer into @p json at the value's first byte.
+ * @param len   receives the value's length in bytes (the span is valid JSON).
+ * @return 0 on success, or -1 if the key is absent.
+ */
+int crclink_json_get_raw(const char *json, const char *key, const char **start, int *len);
+
+/** @brief Length-aware crclink_json_get_raw for a sub-span (no NUL needed). */
+int crclink_json_get_raw_n(const char *json, size_t len, const char *key, const char **start,
+                           int *out_len);
+
+/** @brief Length-aware crclink_json_get_str for a sub-span (no NUL needed). */
+int crclink_json_get_str_n(const char *json, size_t len, const char *key, char *out, size_t outcap);
+
+/** @brief Length-aware crclink_json_get_int for a sub-span. */
+int crclink_json_get_int_n(const char *json, size_t len, const char *key, long *out);
+
+/** @brief Length-aware crclink_json_get_bool for a sub-span. */
+int crclink_json_get_bool_n(const char *json, size_t len, const char *key, int *out);
+
+#ifdef CRCLINK_JSON_FLOATS
+/** @brief Length-aware crclink_json_get_float for a sub-span (CRCLINK_JSON_FLOATS only). */
+int crclink_json_get_float_n(const char *json, size_t len, const char *key, double *out);
 #endif
 
 #ifdef __cplusplus
