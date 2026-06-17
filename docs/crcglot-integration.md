@@ -2,38 +2,37 @@
 
 How crclink consumes crcglot for its crc16-xmodem layer. Handoff reference for the crclink project.
 
-Status: crcglot **0.21.0** is live on PyPI (2026-06-15). It ships the provenance feature described below. Pin `crcglot>=0.21.0`.
+Status: crcglot **0.22.0** is live on PyPI (2026-06-17). It stamps the generating crcglot version into the output and ships the provenance feature described below. Pin `crcglot>=0.22.0`.
 
 ## The boundary
 
-crcglot owns the CRC math and its own metadata; crclink owns the JSON line framing. Do not reimplement or hardcode crc16-xmodem's parameters in crclink: ask crcglot. The two halves of crclink integrate asymmetrically:
+crcglot owns the CRC math and its own metadata; crclink owns the JSON line framing. Do not reimplement or hardcode crc16-xmodem's parameters in crclink: generate them from crcglot. Both halves of crclink integrate the same way, by vendoring generated source:
 
-- **Python host**: runtime dependency on crcglot, call its engine.
+- **Python host**: vendor a crcglot-generated, self-contained module (`src/crclink/crc16_xmodem.py`); no runtime dependency on crcglot.
 - **C firmware**: vendor crcglot-generated source (a micro cannot import a Python package).
 
 Both sides are the same crc16-xmodem, so they interoperate by construction.
 
-## Host (Python): depend on crcglot, do not vendor
+## Host (Python): generate and vendor
 
-crcglot is pure-stdlib (zero runtime deps) and uses its C extension automatically when present, so a runtime dependency is cheap and fast.
+The host vendors a self-contained crc16-xmodem module that crcglot generates, so the wheel has no runtime dependency. crcglot is a dev-only code generator, pinned `crcglot>=0.22.0`.
 
-- Pin it: `uv add "crcglot>=0.21.0"`.
-- Compute via the engine, never a hand-rolled loop:
+Generate the module and vendor it into the package:
 
-  ```python
-  from crcglot import compute
+```bash
+uv run crcglot python --small --comment google --naming snake crc16-xmodem > src/crclink/crc16_xmodem.py
+```
 
-  crc = compute(prefix_bytes, "crc16-xmodem")   # -> int
-  ```
-
-- If crclink ever needs to display or validate the parameters, read them from crcglot rather than a local dict (this is the library-boundary rule: crcglot owns its own knowledge):
+- Treat the file as generated output: regenerate when you bump crcglot, do not hand-edit. Its docstring carries a `Reproduce with crcglot` block recording the exact parameters.
+- Compute via the generated `crc16_xmodem(data)`, never a hand-rolled loop:
 
   ```python
-  from crcglot import ALGORITHMS
+  from crclink.crc16_xmodem import crc16_xmodem
 
-  p = ALGORITHMS["crc16-xmodem"]   # .width .poly .init .refin .refout .xorout .check
-  assert p.check == 0x31C3
+  crc = crc16_xmodem(prefix_bytes)   # -> int
   ```
+
+- The generated module embeds `crc16_xmodem_self_test()` (returns True on success). The host suite calls it to catch a build or width mismatch, the same role the firmware's C `_self_test()` plays.
 
 ## Firmware (C): generate and vendor
 
@@ -49,7 +48,7 @@ uv run crcglot c crc16-xmodem --small file=crc16_xmodem   # -> crc16_xmodem.h / 
 
 ## The framing layer (crclink's own code)
 
-crclink owns this thin wrapper around `crc16_xmodem(...)` (firmware) and `compute(...)` (host). The full scheme is in the crclink design digest; in brief:
+crclink owns this thin wrapper around `crc16_xmodem(...)`, the generated CRC on both host and firmware. The full scheme is in the crclink design digest; in brief:
 
 - **Wire format**: one compact JSON object per line, CRC as the final field: `{"t":1234,"v":42,"crc":"31c3"}`.
 - **CRC range**: from the opening `{` up to (not including) the final `"crc"` key. Build the body ending in the comma, CRC that prefix, append `"crc":"<hex>"}`.
@@ -86,18 +85,18 @@ The firmware can report `crc16_xmodem_provenance.algorithm` / `.variant` over th
 
 ## Cross-end test vectors (pin both ends together)
 
-- `crc16_xmodem(b"123456789") == 0x31C3` asserted on **both** ends: the firmware's `_self_test()` already does this; the host asserts `compute(b"123456789", "crc16-xmodem") == 0x31C3`.
+- `crc16_xmodem(b"123456789") == 0x31C3` asserted on **both** ends: the firmware's `_self_test()` already does this; the host asserts `crc16_xmodem(b"123456789") == 0x31C3` against the vendored module and runs its `crc16_xmodem_self_test()`.
 - A few real frames round-tripped through the host's `reframe()` must equal the original wire bytes.
 - One frame carrying a float as a hex / base64 string blob, to lock the no-bare-floats mitigation.
 
 ## Pinning and CI
 
-- crclink pins `crcglot>=0.21.0`.
-- A crclink CI test asserts the boundary holds: the vendored C's check value and the host's `compute("123456789")` both equal `0x31C3`. If they diverge, the vendored C is stale and must be regenerated from the pinned crcglot.
+- crclink pins `crcglot>=0.22.0` as a dev-only code generator; the wheel has no runtime dependencies.
+- A crclink test asserts the vendored copy is intact: the host's `crc16_xmodem("123456789")` equals `0x31C3` and `crc16_xmodem_self_test()` passes, matching the firmware's C check value. This catches a corrupted or wrongly hand-edited vendored file. It does not, on its own, prove the file is freshly regenerated: crc16-xmodem's check value is fixed, so a stale-but-still-correct copy also passes. Regenerating from the pinned crcglot is a manual step at bump time; nothing triggers it automatically.
 
 ## crc16-xmodem parameters (reference only)
 
-For reference. Read these from crcglot at runtime rather than copying them into crclink code.
+For reference. These live in crcglot and in the generated module's header, not as a hand-written table in crclink code.
 
 | Field  | Value  |
 | ------ | ------ |

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Chuck", email = "chuck@acrocad.net" }]
-dependencies = ["crcglot>=0.21.0"]
+dependencies = []
 
 [project.scripts]
 crclink = "crclink.cli:main"
@@ -21,7 +21,10 @@ Repository = "https://github.com/hucker/crclink"
 Issues = "https://github.com/hucker/crclink/issues"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.8"]
+# crcglot is a build-time code generator here, not a runtime dependency: it
+# generates the vendored crc16-xmodem sources (src/crclink/crc16_xmodem.py and
+# src/c/crc16_xmodem.*). Regenerate with `uv run crcglot ...`; never hand-edit.
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.8", "crcglot>=0.22.0"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=crclink --cov-report=term-missing --cov-fail-under=90 --doctest-modules"

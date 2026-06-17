@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from crcglot import compute
 
 from crclink import (
     CrcMismatchError,
@@ -13,26 +12,36 @@ from crclink import (
     encode_json_frame,
     encode_text_frame,
 )
+from crclink.crc16_xmodem import crc16_xmodem, crc16_xmodem_self_test
 
 
-class TestCrcglotBoundary:
-    """Prove crclink is wired to crcglot's crc16-xmodem, not that the CRC is correct.
+class TestVendoredCrc16Xmodem:
+    """Prove the vendored crc16-xmodem matches the reference value, not that the algorithm is correct.
 
-    crcglot owns the algorithm and its own test suite; this is a single
-    connection check on the catalogue name crclink passes to the engine.
+    crcglot owns the algorithm and generates this module; crclink vendors it so
+    framing carries no runtime dependency. These checks confirm the vendored copy
+    is the same crc16-xmodem the C firmware ships, so the two ends interoperate.
     """
 
-    def test_catalog_check_vector(self) -> None:
-        """The name crclink uses must resolve to crc16-xmodem in crcglot."""
+    def test_check_vector(self) -> None:
+        """The vendored CRC must reproduce the catalogue check value 0x31C3."""
         # Arrange
         data = b"123456789"
 
         # Act
-        actual = compute(data, "crc16-xmodem")
+        actual = crc16_xmodem(data)
 
         # Assert
         expected = 0x31C3
         assert actual == expected, "crc16-xmodem check vector must equal 0x31C3"
+
+    def test_self_test_passes(self) -> None:
+        """The generated self-test must pass here, catching a build or width mismatch."""
+        # Act
+        passed = crc16_xmodem_self_test()
+
+        # Assert
+        assert passed is True, "vendored crc16-xmodem self-test must pass"
 
 
 class TestJsonFraming:

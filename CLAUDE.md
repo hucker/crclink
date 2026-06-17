@@ -3,12 +3,12 @@
 ## Project shape
 
 - crclink is a small Python package for CRC-protected line framing (a JSON line with a trailing `crc` key, and a text line with a trailing CRC suffix), plus a C firmware companion under `src/c/`.
-- Runtime dependency: `crcglot` (>=0.21.0) provides the crc16-xmodem engine. crcglot owns the CRC math and its parameters; crclink names the algorithm and calls the engine. Keep the runtime dependency set otherwise minimal.
+- Zero runtime dependencies. `crcglot` (>=0.22.0) is a build-time code generator (a dev dependency): it generates the vendored crc16-xmodem sources for both halves (`src/crclink/crc16_xmodem.py` for the host, `src/c/crc16_xmodem.*` for the firmware). crcglot owns the CRC math and its parameters; crclink vendors what crcglot generates. Keep the package dependency-free at run time.
 - `specs.md` is the spec. `src/c/` (the firmware builder + vendored CRC) is not shipped in the Python wheel; firmware vendors it. `docs/` holds reference notes (`protocol.md`, `crcglot-integration.md`).
 
 ## Library boundary (crcglot)
 
-Never hardcode crcglot's knowledge in crclink. The CRC parameters (poly, init, refin, refout, xorout, check) and the algorithm live in crcglot; read them from crcglot or call its engine (`crcglot.compute(data, "crc16-xmodem")`), never a local copy. Before writing a dict/table keyed on something crcglot also keys on, stop and ask whether it belongs in crcglot. See `docs/crcglot-integration.md`.
+Never hand-roll or hardcode crcglot's knowledge in crclink. The CRC parameters (poly, init, refin, refout, xorout, check) and the algorithm live in crcglot. crclink uses crcglot's generated, vendored crc16-xmodem (`src/crclink/crc16_xmodem.py` for the host, `src/c/crc16_xmodem.*` for the firmware): regenerate it from crcglot, never hand-edit it, and never write your own CRC loop or parameter table. Before writing a dict/table keyed on something crcglot also keys on, stop and ask whether it belongs in crcglot. See `docs/crcglot-integration.md`.
 
 ## Branch hygiene
 

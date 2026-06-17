@@ -4,7 +4,7 @@ CRC-protected JSON and text line framing for serial-style embedded links.
 
 crclink ships **both sides of the wire**: a Python library for the host and a C firmware companion for the device, so the same frames build, verify, and decode on either end.
 
-- **Host (Python)**: this package. Encode, decode, and verify frames, plus a `crclink` CLI. Install with `uv add crclink`.
+- **Host (Python)**: this package, with no runtime dependencies. Encode, decode, and verify frames, plus a `crclink` CLI. Install with `uv add crclink`.
 - **Device (C)**: a no-heap, no-runtime-dependency implementation under [src/c/](src/c/). It builds and CRC-stamps frames straight to a serial sink and verifies/reads incoming flat-JSON commands. See [src/c/README.md](src/c/README.md).
 
 Both sides compute CRC-16/XMODEM over the same coverage, so a frame built on one verifies on the other; the test suites cross-check both directions.
@@ -18,9 +18,9 @@ Both sides compute CRC-16/XMODEM over the same coverage, so a frame built on one
 
 ## CRC engine
 
-crclink computes CRC-16/XMODEM through [crcglot](https://github.com/hucker/crcglot) rather than reimplementing it. crcglot owns the algorithm and its parameters; crclink just names the algorithm and calls the engine (`crcglot.compute(data, "crc16-xmodem")`), so the CRC definition lives in one place. crcglot is pure-stdlib, so depending on it at runtime pulls in no extra packages. crclink pins `crcglot>=0.21.0`.
+crclink does not reimplement CRC-16/XMODEM. It vendors a self-contained module that [crcglot](https://github.com/hucker/crcglot) generates ([src/crclink/crc16_xmodem.py](src/crclink/crc16_xmodem.py)), so the wheel installs with no runtime dependencies. crcglot owns the algorithm and its parameters and emits the code; crclink ships the generated copy and regenerates it whenever crcglot is bumped. The C firmware vendors the same crc16-xmodem the same way, so both ends stay in lockstep.
 
-See [docs/crcglot-integration.md](docs/crcglot-integration.md) for the integration details: the host vs. firmware split and the cross-end test vectors.
+crcglot is a build-time code generator here (a dev dependency, `crcglot>=0.22.0`), not something the package imports at run time. See [docs/crcglot-integration.md](docs/crcglot-integration.md) for the integration details: both the host and the firmware vendor generated code, plus the cross-end test vectors.
 
 ## CLI
 
