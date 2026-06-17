@@ -1,28 +1,61 @@
 name: Publish to PyPI
 
-# Publishes when you publish a GitHub Release. The release tag (e.g. v0.1.0)
-# should match the version in pyproject.toml. The release steps live in
-# scripts/release_prep.py (checks) and scripts/release_publish.py (uv build +
-# uv publish), so a local release and the CI release run the same code. uv
-# publishes via PyPI Trusted Publishing (OIDC), detected from the Actions
-# environment, so there is no stored API token.
+# Pushing a v*.*.* tag (done by scripts/release_publish.py) triggers this:
+# build the sdist + wheel with uv and upload to PyPI via OIDC Trusted
+# Publishing. No stored API token. crclink is pure Python, so a single
+# uv build produces the universal wheel; there is no per-platform matrix.
+#
+# Trusted Publishing is keyed to this workflow filename (publish.yml) on
+# pypi.org. If the publish step fails with "not a trusted publisher", the
+# PyPI publisher entry points at a different filename (see scripts/RELEASE.md).
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the tag matches the pyproject version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          pkg=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          tag="${GITHUB_REF_NAME#v}"
+          test "$pkg" = "$tag" || { echo "::error::tag $GITHUB_REF_NAME does not match pyproject version $pkg"; exit 1; }
+          echo "tag $GITHUB_REF_NAME matches pyproject version $pkg"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Sanity-check the suite before an irreversible upload
+        run: uv run --locked pytest
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
   publish:
-    name: Build and publish to PyPI
+    name: Publish to PyPI
+    needs: build
+    # Tag pushes only; a manual workflow_dispatch builds but never publishes,
+    # so the build path can be exercised without touching PyPI.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write # required for Trusted Publishing; uv detects and uses it
     steps:
-      - uses: actions/checkout@v4
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Pre-release checks
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: uv run --locked scripts/release_prep.py
-      - name: Build and publish to PyPI
-        run: uv run --locked scripts/release_publish.py
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/crclink/
