@@ -13,8 +13,9 @@ What it does:
     2. Cut rel/v<version> from main
     3. Bump version in pyproject.toml and refresh uv.lock
     4. Run the full gate: the Python suite (pytest) + the C Unity suite
-    5. Insert a CHANGELOG stub (raw git-log bullets + a TODO marker)
-    6. Commit the release
+    5. Refresh the README badges from the tox matrix + C suite + ruff/ty
+    6. Insert a CHANGELOG stub (raw git-log bullets + a TODO marker)
+    7. Commit the release
 
 Aborts loudly on any failure. Safe-restart: if it fails halfway, discard the
 partial bump and delete the branch:
@@ -52,6 +53,8 @@ from release_common import (  # noqa: E402
     run_out,
     validate_version,
 )
+
+import update_badges  # noqa: E402  (local module, imported after the sys.path insert)
 
 # ── lint gate ──────────────────────────────────────────────────────────────────
 
@@ -179,9 +182,20 @@ def cut_release_branch(version: str) -> None:
     ok(f"on branch {branch}")
 
 
+def refresh_badges() -> None:
+    """Regenerate the README badge block from freshly-run checks.
+
+    Delegates to update_badges, which runs the tox matrix, the C Unity suite,
+    and ruff/ty, so the static badges describe the real state at release time.
+    """
+    if update_badges.main() != 0:
+        die("badge refresh failed (see the update_badges output above)")
+    ok("README badges refreshed")
+
+
 def commit_release(version: str) -> None:
     """Stage the release files and commit as ``Release v<version>``."""
-    files = ["pyproject.toml", "uv.lock", "CHANGELOG.md"]
+    files = ["pyproject.toml", "uv.lock", "CHANGELOG.md", "README.md"]
     run(["git", "add", *files])
     status = run_out(["git", "status", "--porcelain", *files])
     if not status:
@@ -202,7 +216,7 @@ def main() -> None:
     validate_version(version)
 
     info(f"Preparing release v{version}")
-    total = 6
+    total = 7
 
     def step(n: int, label: str) -> None:
         info(f"[{n}/{total}] {label}")
@@ -229,10 +243,13 @@ def main() -> None:
     step(4, "Running full gate (pytest + C suite)...")
     run_gate()
 
-    step(5, "Inserting CHANGELOG stub...")
+    step(5, "Refreshing README badges...")
+    refresh_badges()
+
+    step(6, "Inserting CHANGELOG stub...")
     insert_changelog_stub(version)
 
-    step(6, "Committing release...")
+    step(7, "Committing release...")
     commit_release(version)
 
     # ── Done ───────────────────────────────────────────────────────────────────

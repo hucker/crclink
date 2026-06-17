@@ -49,7 +49,7 @@ Symptom of getting this wrong: the CI publish step fails with *"not a trusted pu
 python scripts/release_prep.py 0.2.0      # bare version, no leading 'v'
 ```
 
-This cuts `rel/v0.2.0`, bumps `pyproject.toml`, refreshes `uv.lock`, runs both suites, and inserts a CHANGELOG stub. It stops on the release branch with the release commit already made.
+This cuts `rel/v0.2.0`, bumps `pyproject.toml`, refreshes `uv.lock`, runs both suites, refreshes the README badges (`scripts/update_badges.py`: the tox matrix, the C Unity suite, and ruff/ty), and inserts a CHANGELOG stub. It stops on the release branch with the release commit already made.
 
 If it fails partway, discard the partial bump and retry:
 
