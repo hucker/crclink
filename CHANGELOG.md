@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.0 (2026-06-17)
+
+- **No runtime dependencies.** crclink no longer imports crcglot at run time; it vendors a crcglot-generated crc16-xmodem module instead ([src/crclink/crc16_xmodem.py](src/crclink/crc16_xmodem.py)), so installing the wheel pulls in nothing else. The CRC is still crcglot's verified output (regenerated, never hand-rolled), and the framing API and CLI are unchanged, so it is a drop-in upgrade from 0.1.0.
+- The PyPI summary now names both framing formats: "CRC-protected JSON and text line framing for embedded serial links".
+
 ## v0.1.0 (2026-06-17)
 
 Initial release. crclink frames CRC-protected lines for serial-style embedded links and ships both sides of the wire: a Python host library and a C firmware companion. Both ends compute CRC-16/XMODEM over the same coverage, so a frame built on one verifies on the other.
