@@ -46,6 +46,7 @@ Examples: `feat/cli-verify-file`, `bug/docstring-crc-examples`, `ref/text-prefix
 Python:
 
 - `uv run pytest` runs the suite and the doctests.
+- `uvx --with tox-uv tox run` runs the suite across the supported Python versions (py311-py314) plus a ruff/ty `lint` env; uv backs every env (see `tox.ini`).
 - Class-based organization. AAA comments (`# Arrange` / `# Act` / `# Assert`) on non-trivial tests. Every `assert` carries a message describing what failed. Assert order is `actual == expected`; use `actual` / `expected` variables for non-trivial checks.
 - Tests live in the file named for their surface: `tests/test_frame.py` (framing API), `tests/test_cli.py` (CLI). Name tests and classes in the feature's public vocabulary, so grepping `tests/` for a public name lands in the right place. A test name states one claim; the class docstring carries the shared context; assert messages give the failure diagnosis.
 

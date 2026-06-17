@@ -85,3 +85,10 @@ uv add crclink
 uv sync
 uv run pytest
 ```
+
+Test across the supported Python versions with tox, which builds each env with uv (not pip):
+
+```bash
+uvx --with tox-uv tox run            # every version plus the ruff/ty lint env
+uvx --with tox-uv tox run -e py312   # one version
+```
