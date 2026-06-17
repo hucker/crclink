@@ -36,8 +36,8 @@ CRC coverage rule:
 
 Also support text line framing where CRC is appended to message text as either:
 
-- <body><space><4-hex>
-- <body><space>0x<4-hex>
+- `<body><space><4-hex>`
+- `<body><space>0x<4-hex>`
 
 CRC covers body bytes only (before final separator space).
 
