@@ -47,21 +47,29 @@ cat frames | crclink verify-file -                 # read from stdin
 
 ## On the device (C)
 
-The firmware receives the same frames: verify the CRC, then read fields by key. Numbers are converted for you, with no heap and no runtime dependencies.
+The firmware speaks the same frames both ways: verify an incoming command, read its fields by key, then build and CRC-stamp the reply. Numbers are converted for you, with no heap and no runtime dependencies. Here a host sends the monitor command `mem byte 0x1234` and the device returns the byte at that address (`cmd: uint32 -> v: uint8`):
 
 ```c
-#include "crclink_json_read.h"
+#include "crclink_json.h"        // build the reply frame
+#include "crclink_json_read.h"   // read the incoming command
 
-void handle_line(const char *line) {              // {"cmd":"get_voltage 1","crc":"9585"}
+void handle_line(const char *line) {              // {"cmd":"mem byte 0x1234","crc":"5993"}
     if (crclink_json_verify(line) != 0) return;   // bad CRC: drop the frame
     char cmd[32];
-    if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) >= 0) {
-        dispatch(cmd);                            // cmd == "get_voltage 1"
-    }
+    if (crclink_json_get_str(line, "cmd", cmd, sizeof cmd) < 0) return;
+
+    uint32_t addr;                                // pull the address out (your parser)
+    if (sscanf(cmd, "mem byte %" SCNx32, &addr) != 1) return;
+
+    uint8_t value = *(volatile uint8_t *)(uintptr_t)addr;   // read the address
+    crclink_json_t j;
+    crclink_json_start(&j, uart_sink, NULL);      // your per-byte serial sink
+    crclink_json_int_add(&j, "v", value);
+    crclink_json_end(&j);                         // -> {"v":42,"crc":"37c2"}
 }
 ```
 
-See [src/c/README.md](src/c/README.md) for transmitting frames, failure handling, and filling a C struct from a command.
+The reply streams out a byte at a time through your sink and decodes on the host with `crclink.decode_json_frame`. See [src/c/README.md](src/c/README.md) for the builder and reader APIs in full, failure handling, and filling a C struct from a command.
 
 ## Install
 
