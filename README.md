@@ -1,6 +1,6 @@
 # crclink
 
-CRC-protected, line-based transport framing for serial-style embedded links.
+CRC-protected JSON and text line framing for serial-style embedded links.
 
 crclink ships **both sides of the wire**: a Python library for the host and a C firmware companion for the device, so the same frames build, verify, and decode on either end.
 
