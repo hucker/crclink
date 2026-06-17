@@ -5,8 +5,11 @@ from __future__ import annotations
 import subprocess
 
 COMMANDS = [
-    ["uv", "build"],
-    ["uv", "publish"],
+    # --clear wipes dist/ first, so a stale local artifact cannot be uploaded.
+    ["uv", "build", "--clear"],
+    # --trusted-publishing always: fail loudly if the OIDC exchange fails in CI
+    # instead of silently degrading to a no-credentials auth error.
+    ["uv", "publish", "--trusted-publishing", "always"],
 ]
 
 

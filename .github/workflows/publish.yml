@@ -1,40 +1,28 @@
 name: Publish to PyPI
 
 # Publishes when you publish a GitHub Release. The release tag (e.g. v0.1.0)
-# should match the version in pyproject.toml. Uses PyPI Trusted Publishing
-# (OIDC), so there is no stored API token.
+# should match the version in pyproject.toml. The release steps live in
+# scripts/release_prep.py (checks) and scripts/release_publish.py (uv build +
+# uv publish), so a local release and the CI release run the same code. uv
+# publishes via PyPI Trusted Publishing (OIDC), detected from the Actions
+# environment, so there is no stored API token.
 on:
   release:
     types: [published]
 
 jobs:
-  build:
-    name: Build distributions
+  publish:
+    name: Build and publish to PyPI
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for Trusted Publishing; uv detects and uses it
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Build sdist and wheel
-        run: uv build
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-  publish:
-    name: Publish to PyPI
-    needs: build
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write # required for Trusted Publishing; nothing else is needed
-    steps:
-      - name: Download dist artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Pre-release checks
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: uv run --locked scripts/release_prep.py
+      - name: Build and publish to PyPI
+        run: uv run --locked scripts/release_publish.py
