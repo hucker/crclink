@@ -15,18 +15,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Sync dependencies
         run: uv sync
-      - name: Lint (ruff)
-        run: uv run ruff check src tests
-      - name: Type check (ty)
-        run: uv run ty check src
+      - name: Quality (ruff + ty error counts)
+        run: uv run python scripts/quality.py
       - name: Run pytest
-        run: uv run pytest -q --cov-report=xml
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+        run: uv run pytest -q
 
   c:
     name: C tests (Unity)

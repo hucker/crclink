@@ -1,6 +1,6 @@
 # crclink
 
-[![CI](https://github.com/hucker/crclink/actions/workflows/ci.yml/badge.svg)](https://github.com/hucker/crclink/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/hucker/crclink/branch/main/graph/badge.svg)](https://codecov.io/gh/hucker/crclink) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![Checked with ty](https://img.shields.io/badge/checked%20with-ty-261230.svg)](https://github.com/astral-sh/ty)
+[![CI](https://github.com/hucker/crclink/actions/workflows/ci.yml/badge.svg)](https://github.com/hucker/crclink/actions/workflows/ci.yml) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![Checked with ty](https://img.shields.io/badge/checked%20with-ty-261230.svg)](https://github.com/astral-sh/ty)
 
 CRC-protected JSON and text line framing for serial-style embedded links.
 

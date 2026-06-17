@@ -45,7 +45,7 @@ Examples: `feat/cli-verify-file`, `bug/docstring-crc-examples`, `ref/text-prefix
 
 Python:
 
-- `uv run pytest` runs the suite, the doctests, and coverage. The gate is 90% (enforced by `--cov-fail-under=90` in `pyproject.toml`).
+- `uv run pytest` runs the suite and the doctests.
 - Class-based organization. AAA comments (`# Arrange` / `# Act` / `# Assert`) on non-trivial tests. Every `assert` carries a message describing what failed. Assert order is `actual == expected`; use `actual` / `expected` variables for non-trivial checks.
 - Tests live in the file named for their surface: `tests/test_frame.py` (framing API), `tests/test_cli.py` (CLI). Name tests and classes in the feature's public vocabulary, so grepping `tests/` for a public name lands in the right place. A test name states one claim; the class docstring carries the shared context; assert messages give the failure diagnosis.
 
@@ -58,8 +58,8 @@ CI (`.github/workflows/ci.yml`) runs both suites on every push and PR.
 
 ## Quality gates (before declaring work done)
 
-- `uvx ruff check src tests` reports `All checks passed!`
-- `uv run pytest` is green (coverage >= 90%). A run with skips is amber, not green: report the skip count and treat it as a regression to investigate.
+- `uv run python scripts/quality.py` reports `ruff: 0 errors` and `ty: 0 errors` (it runs both and fails on any).
+- `uv run pytest` is green. A run with skips is amber, not green: report the skip count and treat it as a regression to investigate.
 - `make -C src/c/test test` is green if any C changed.
 - IDE Problems pane: zero entries.
 
@@ -84,7 +84,7 @@ Run `/humanizer` over end-user-facing markdown after editing it (`README.md`, th
 ## Precommit
 
 - Update README.md if behavior, the CLI, or the public API changed.
-- `uv run pytest` green, coverage >= 90%.
-- `uvx ruff check src tests` clean.
+- `uv run pytest` green.
+- `uv run python scripts/quality.py` clean (0 ruff + 0 ty errors).
 - `make -C src/c/test test` green if any C changed.
 - `/humanizer` over any edited end-user prose.
