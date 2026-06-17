@@ -1,6 +1,6 @@
 # crclink
 
-[![PyPI](https://img.shields.io/pypi/v/crclink)](https://pypi.org/project/crclink/) ![license](https://img.shields.io/badge/license-MIT-blue) ![tests](https://img.shields.io/badge/tests-34%20passed-brightgreen) ![ruff](https://img.shields.io/badge/ruff-passing-brightgreen) ![ty](https://img.shields.io/badge/ty-passing-brightgreen)
+[![PyPI](https://img.shields.io/pypi/v/crclink)](https://pypi.org/project/crclink/) ![license](https://img.shields.io/badge/license-MIT-blue) ![Py 3.11](https://img.shields.io/badge/Py%203.11-passing-brightgreen) ![Py 3.12](https://img.shields.io/badge/Py%203.12-passing-brightgreen) ![Py 3.13](https://img.shields.io/badge/Py%203.13-passing-brightgreen) ![Py 3.14](https://img.shields.io/badge/Py%203.14-passing-brightgreen) ![unity](https://img.shields.io/badge/unity-32%20passed-brightgreen) ![ruff](https://img.shields.io/badge/ruff-passing-brightgreen) ![ty](https://img.shields.io/badge/ty-passing-brightgreen)
 
 CRC-protected JSON and text line framing for serial-style embedded links.
 
