@@ -58,8 +58,7 @@ CI (`.github/workflows/ci.yml`) runs both suites on every push and PR.
 
 ## Quality gates (before declaring work done)
 
-- `uv run python scripts/quality.py` reports `ruff: 0 errors` and `ty: 0 errors` (it runs both and fails on any).
-- `uv run pytest` is green. A run with skips is amber, not green: report the skip count and treat it as a regression to investigate.
+- `uv run python scripts/quality.py` runs ruff, ty, and pytest and reports their counts (e.g. `ruff: 0 errors`, `ty: 0 errors`, `pytest: 0 failed, 34 passed`); it fails on any. A run with skipped tests is amber, not green: report the skip count and treat it as a regression to investigate.
 - `make -C src/c/test test` is green if any C changed.
 - IDE Problems pane: zero entries.
 
@@ -84,7 +83,6 @@ Run `/humanizer` over end-user-facing markdown after editing it (`README.md`, th
 ## Precommit
 
 - Update README.md if behavior, the CLI, or the public API changed.
-- `uv run pytest` green.
-- `uv run python scripts/quality.py` clean (0 ruff + 0 ty errors).
+- `uv run python scripts/quality.py` clean (ruff, ty, and pytest all zero-failure).
 - `make -C src/c/test test` green if any C changed.
 - `/humanizer` over any edited end-user prose.

@@ -15,10 +15,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Sync dependencies
         run: uv sync
-      - name: Quality (ruff + ty error counts)
+      - name: Quality (ruff + ty + pytest)
         run: uv run python scripts/quality.py
-      - name: Run pytest
-        run: uv run pytest -q
 
   c:
     name: C tests (Unity)

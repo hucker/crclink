@@ -1,14 +1,14 @@
-"""Quality gate: count ruff and ty diagnostics, fail if either reports any.
+"""Quality gate: count ruff, ty, and pytest failures; fail if anything failed.
 
-crclink gates on a clean lint + type check rather than a coverage threshold.
-This runs both tools, prints their error counts, and exits nonzero if either
-finds anything. Run it locally or in CI:
+crclink gates on a clean lint, a clean type check, and a green test suite
+rather than a coverage threshold. This runs all three, prints their counts, and
+exits nonzero if anything fails. Run it locally or in CI:
 
     uv run python scripts/quality.py
 
-Both tools emit a machine-readable list of diagnostics (ruff's JSON, ty's
-GitLab Code Quality JSON), so the counts are exact rather than scraped from
-human-readable output.
+ruff and ty emit machine-readable diagnostic lists (ruff's JSON, ty's GitLab
+Code Quality JSON); pytest writes a JUnit XML report. The counts are read from
+those, not scraped from human-readable output.
 """
 
 from __future__ import annotations
@@ -16,6 +16,9 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
+import xml.etree.ElementTree as ET
+from pathlib import Path
 
 # ruff lints the package and the tests; ty checks the package. Both are asked
 # for a JSON list of diagnostics, so len() of the parsed output is the count.
@@ -23,7 +26,7 @@ RUFF_CMD = ["ruff", "check", "--output-format", "json", "src", "tests"]
 TY_CMD = ["ty", "check", "--output-format", "gitlab", "src"]
 
 
-def _count(cmd: list[str], tool: str) -> int:
+def _count_json(cmd: list[str], tool: str) -> int:
     """Run a checker and return its diagnostic count from JSON stdout.
 
     Args:
@@ -49,17 +52,56 @@ def _count(cmd: list[str], tool: str) -> int:
         raise SystemExit(2) from None
 
 
+def _run_pytest() -> tuple[int, int, int]:
+    """Run pytest and return (failures, passed, total) from its JUnit report.
+
+    ``failures`` folds in errored/collection failures, not just failed asserts.
+    On failure the captured pytest output is echoed so the run is debuggable;
+    counts alone are not actionable.
+
+    Returns:
+        A ``(failures, passed, total)`` triple.
+
+    Raises:
+        SystemExit: With code 2 if pytest wrote no parseable report.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        report = Path(tmp) / "report.xml"
+        result = subprocess.run(
+            ["pytest", "-q", f"--junit-xml={report}"],
+            capture_output=True,
+            text=True,
+        )
+        try:
+            suites = list(ET.parse(report).getroot().iter("testsuite"))
+        except (ET.ParseError, FileNotFoundError):
+            sys.stderr.write(f"pytest produced no report:\n{result.stdout}{result.stderr}\n")
+            raise SystemExit(2) from None
+
+    def total(attr: str) -> int:
+        return sum(int(suite.get(attr, "0")) for suite in suites)
+
+    tests = total("tests")
+    failures = total("failures") + total("errors")
+    passed = tests - failures - total("skipped")
+    if failures:
+        sys.stdout.write(result.stdout)
+    return failures, passed, tests
+
+
 def main() -> int:
-    """Print ruff and ty error counts; return 1 if either is nonzero."""
-    ruff_errors = _count(RUFF_CMD, "ruff")
-    ty_errors = _count(TY_CMD, "ty")
+    """Print ruff, ty, and pytest counts; return 1 if anything failed."""
+    ruff_errors = _count_json(RUFF_CMD, "ruff")
+    ty_errors = _count_json(TY_CMD, "ty")
+    test_fails, test_passed, test_total = _run_pytest()
 
-    print(f"ruff: {ruff_errors} errors")
-    print(f"ty:   {ty_errors} errors")
+    print(f"ruff:   {ruff_errors} errors")
+    print(f"ty:     {ty_errors} errors")
+    print(f"pytest: {test_fails} failed, {test_passed} passed ({test_total} total)")
 
-    total = ruff_errors + ty_errors
-    if total:
-        print(f"FAIL: {total} error(s)", file=sys.stderr)
+    problems = ruff_errors + ty_errors + test_fails
+    if problems:
+        print(f"FAIL: {problems} problem(s)", file=sys.stderr)
         return 1
     print("OK")
     return 0
