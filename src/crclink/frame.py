@@ -22,6 +22,27 @@ def _crc(data: bytes) -> int:
     return crc16_xmodem(data)
 
 
+def _reject_floats(value: Any) -> None:
+    """Reject float values anywhere in a payload; crclink frames are integers-only.
+
+    A float serializes to bytes that the Python host and the C firmware format
+    differently (e.g. ``0.1`` vs ``0.100000``), so the CRC would not match across
+    ends. Send a scaled integer instead: millivolts not volts, cents not dollars,
+    tenths of a degree not degrees. ``bool`` is an ``int`` subclass and is allowed.
+    """
+    if isinstance(value, float):
+        raise FrameFormatError(
+            "float values are not supported; send a scaled integer instead "
+            "(e.g. millivolts not volts, cents not dollars)"
+        )
+    if isinstance(value, dict):
+        for item in value.values():
+            _reject_floats(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _reject_floats(item)
+
+
 @dataclass(frozen=True)
 class DecodedJsonFrame:
     """Decoded JSON frame details.
@@ -60,13 +81,17 @@ def encode_json_frame(payload: dict[str, Any]) -> bytes:
     """Encode a payload dict into a CRC-protected JSON line.
 
     Args:
-        payload: Payload mapping. It must not contain the crc key.
+        payload: Payload mapping. It must not contain the crc key, and its
+            values must be integers, strings, bools, null, or nested
+            objects/arrays of those. Floats are rejected (crclink is
+            integers-only): send a scaled integer instead, e.g. millivolts not
+            volts, cents not dollars.
 
     Returns:
         Encoded frame bytes without a trailing newline.
 
     Raises:
-        FrameFormatError: If payload contains a crc key.
+        FrameFormatError: If payload contains a crc key or any float value.
 
     Examples:
         >>> encode_json_frame({"t": 1234, "v": 42}).decode("ascii")
@@ -74,6 +99,7 @@ def encode_json_frame(payload: dict[str, Any]) -> bytes:
     """
     if "crc" in payload:
         raise FrameFormatError("payload must not include 'crc' key")
+    _reject_floats(payload)
 
     body_text = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
     prefix = "{" if body_text == "{}" else f"{body_text[:-1]},"

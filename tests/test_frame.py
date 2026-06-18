@@ -80,6 +80,35 @@ class TestJsonFraming:
         with pytest.raises(FrameFormatError, match="must not include 'crc' key"):
             encode_json_frame(payload)
 
+    def test_encode_rejects_float_value(self) -> None:
+        """Encoder should reject a bare float; crclink frames are integers-only."""
+        # Arrange
+        payload = {"t": 1, "v": 3.5}
+
+        # Act / Assert
+        with pytest.raises(FrameFormatError, match="float values are not supported"):
+            encode_json_frame(payload)
+
+    def test_encode_rejects_float_nested_in_list(self) -> None:
+        """Float rejection reaches values nested inside lists and objects."""
+        # Arrange
+        payload = {"xs": [1, 2, 3.0]}
+
+        # Act / Assert
+        with pytest.raises(FrameFormatError, match="float values are not supported"):
+            encode_json_frame(payload)
+
+    def test_encode_allows_bool_which_is_not_a_float(self) -> None:
+        """bool is an int subclass and must round-trip, not be rejected as a float."""
+        # Arrange
+        payload = {"flag": True, "off": False}
+
+        # Act
+        decoded = decode_json_frame(encode_json_frame(payload))
+
+        # Assert
+        assert decoded.payload == payload, "bool values must round-trip, not be rejected"
+
     def test_decode_raises_for_missing_crc_key(self) -> None:
         """Decode should fail when crc key is absent."""
         # Arrange

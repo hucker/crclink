@@ -29,12 +29,12 @@ test: builder_runner reader_runner
 	./reader_runner
 
 builder_runner: $(BUILDER_SRCS)
-	$(TMPENV) $(CC) $(CFLAGS) -DCRCLINK_JSON_FLOATS $(INCS) $(BUILDER_SRCS) -o builder_runner
+	$(TMPENV) $(CC) $(CFLAGS) $(INCS) $(BUILDER_SRCS) -o builder_runner
 
-# Floats on (covers get_float) and a larger token budget so the nested-frame
-# tests fit (a realistic tools/call frame is ~19 tokens).
+# A larger token budget so the nested-frame tests fit (a realistic tools/call
+# frame is ~19 tokens).
 reader_runner: $(READER_SRCS)
-	$(TMPENV) $(CC) $(CFLAGS) -DCRCLINK_JSON_FLOATS -DCRCLINK_JSON_MAX_TOKENS=32 $(INCS) \
+	$(TMPENV) $(CC) $(CFLAGS) -DCRCLINK_JSON_MAX_TOKENS=32 $(INCS) \
 		$(READER_SRCS) -o reader_runner
 
 clean:

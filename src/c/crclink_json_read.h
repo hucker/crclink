@@ -25,10 +25,6 @@
  * level per call, no recursion). The token budget is CRCLINK_JSON_MAX_TOKENS
  * (default 16; raise it in your build for nested or wide frames; it sizes a
  * stack array of ~16 bytes per token).
- *
- * @note Floating-point support is opt-in: define CRCLINK_JSON_FLOATS to compile
- *       crclink_json_get_float (it pulls in strtod, which is costly on a
- *       soft-float target). Integers and the rest never need it.
  */
 #ifndef CRCLINK_JSON_READ_H
 #define CRCLINK_JSON_READ_H
@@ -86,20 +82,6 @@ int crclink_json_get_int(const char *json, const char *key, long *out);
  */
 int crclink_json_get_bool(const char *json, const char *key, int *out);
 
-#ifdef CRCLINK_JSON_FLOATS
-/**
- * @brief Read the floating-point value of @p key.
- *
- * Compiled only when CRCLINK_JSON_FLOATS is defined.
- *
- * @param json NUL-terminated flat JSON object text.
- * @param key  key to look up.
- * @param out  receives the parsed value on success.
- * @return 0 on success, or -1 if the key is absent or its value is not a number.
- */
-int crclink_json_get_float(const char *json, const char *key, double *out);
-#endif
-
 /* --- Nested reads ---
  * Get a value's raw byte span with crclink_json_get_raw, then re-read that span
  * (which is valid JSON) with the _n getters, which take an explicit length
@@ -129,11 +111,6 @@ int crclink_json_get_int_n(const char *json, size_t len, const char *key, long *
 
 /** @brief Length-aware crclink_json_get_bool for a sub-span. */
 int crclink_json_get_bool_n(const char *json, size_t len, const char *key, int *out);
-
-#ifdef CRCLINK_JSON_FLOATS
-/** @brief Length-aware crclink_json_get_float for a sub-span (CRCLINK_JSON_FLOATS only). */
-int crclink_json_get_float_n(const char *json, size_t len, const char *key, double *out);
-#endif
 
 #ifdef __cplusplus
 }

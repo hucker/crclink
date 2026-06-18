@@ -25,23 +25,21 @@ crclink_json_start_buf(&j, &b, s, sizeof s);
 crclink_json_str_add(&j, "status", "ready");
 crclink_json_int_add(&j, "code", 0);
 crclink_json_bool_add(&j, "ok", 1);
-crclink_json_float_add(&j, "v", 3.3);    // float adder needs -DCRCLINK_JSON_FLOATS
 int xs[] = {1, 2, 3};
 crclink_json_int_list_add(&j, "xs", xs, 3);
 crclink_json_dict_add(&j, "meta", "{\"n\":1}");   // verbatim nested object
 crclink_json_end(&j);
-// s -> {"status":"ready","code":0,"ok":true,"v":3.3,"xs":[1,2,3],"meta":{"n":1},"crc":"...."}
+// s -> {"status":"ready","code":0,"ok":true,"xs":[1,2,3],"meta":{"n":1},"crc":"...."}
 ```
 
-Lists come in two forms. For a homogeneous array you already hold, use the typed adders: `int_list_add`, `bool_list_add`, `str_list_add`, and `float_list_add` (behind `-DCRCLINK_JSON_FLOATS`). For a mixed/polymorphic list, build it element by element:
+Lists come in two forms. For a homogeneous array you already hold, use the typed adders: `int_list_add`, `bool_list_add`, and `str_list_add`. For a mixed/polymorphic list, build it element by element:
 
 ```c
 crclink_json_list_open(&j, "items");
 crclink_json_list_int(&j, 1);
 crclink_json_list_str(&j, "two");
 crclink_json_list_bool(&j, 1);
-crclink_json_list_float(&j, 3.5);   // -DCRCLINK_JSON_FLOATS
-crclink_json_list_close(&j);        // -> "items":[1,"two",true,3.5],
+crclink_json_list_close(&j);        // -> "items":[1,"two",true],
 ```
 
 Straight out a serial port: supply your own per-byte sink. Nothing buffers the frame.
@@ -95,14 +93,14 @@ crclink_json_get_str(line, "cmd", small, sizeof small); // -> -1, value would ov
 
 A failed `crclink_json_verify` means a corrupted or truncated frame: drop it, or ask the host to resend.
 
-Filling a C struct from a richer command, `{"cmd":"set_pid","ch":1,"en":true,"sp":3.3,"crc":"8161"}`:
+Filling a C struct from a richer command, `{"cmd":"set_pid","ch":1,"en":true,"sp_mv":3300,"crc":"ba4e"}` (the setpoint rides as a scaled integer, millivolts, because floats are not supported):
 
 ```c
 typedef struct {
-    char   name[16];
-    long   channel;
-    int    enabled;     // bool
-    double setpoint;    // needs -DCRCLINK_JSON_FLOATS
+    char name[16];
+    long channel;
+    int  enabled;       // bool
+    long setpoint_mv;   // millivolts (scaled integer; no float on the wire)
 } command_t;
 
 int parse_command(const char *line, command_t *out) {
@@ -113,7 +111,7 @@ int parse_command(const char *line, command_t *out) {
     bad |= crclink_json_get_str(line, "cmd", out->name, sizeof out->name) < 0;
     bad |= crclink_json_get_int(line, "ch", &out->channel) < 0;
     bad |= crclink_json_get_bool(line, "en", &out->enabled) < 0;
-    bad |= crclink_json_get_float(line, "sp", &out->setpoint) < 0;
+    bad |= crclink_json_get_int(line, "sp_mv", &out->setpoint_mv) < 0;
     return bad ? -1 : 0;                     // -1 if any field is missing or the wrong type
 }
 ```
@@ -130,15 +128,14 @@ if (crclink_json_get_raw(line, "params", &params, &plen) == 0) {
 }
 ```
 
-`crclink_json_verify` recomputes crc16-xmodem over the frame's covered prefix (the same coverage as the Python decoder) and checks it against the embedded crc, so a frame from `crclink.encode_json_frame` verifies on the device and vice versa. `line` must be NUL-terminated (or use the `_n` getters with a length). Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. Floating point is opt-in: compile with `-DCRCLINK_JSON_FLOATS` to get `crclink_json_get_float` (it pulls in `strtod`, which is costly on a soft-float target); integers and the rest never need it. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it in your build for nested or wide frames.
+`crclink_json_verify` recomputes crc16-xmodem over the frame's covered prefix (the same coverage as the Python decoder) and checks it against the embedded crc, so a frame from `crclink.encode_json_frame` verifies on the device and vice versa. `line` must be NUL-terminated (or use the `_n` getters with a length). Each getter returns 0 (or, for `get_str`, the copied length) on success and -1 if the key is absent, the value is the wrong type, or a string will not fit the output buffer. The token budget is `CRCLINK_JSON_MAX_TOKENS` (default 16), raise it in your build for nested or wide frames.
 
-The unused getters and adders are stripped from the image by the linker (`-ffunction-sections -fdata-sections -Wl,--gc-sections`), so a firmware that only reads a string command and writes a string result carries only that path: there are no per-feature compile flags to manage, beyond `CRCLINK_JSON_FLOATS` (which gates the `strtod` dependency) and the token budget.
+The unused getters and adders are stripped from the image by the linker (`-ffunction-sections -fdata-sections -Wl,--gc-sections`), so a firmware that only reads a string command and writes a string result carries only that path: there are no per-feature compile flags to manage beyond the token budget.
 
 ## Build
 
 ```sh
 cc -std=c11 -c crc16_xmodem.c crclink_json.c crclink_json_read.c
-# add -DCRCLINK_JSON_FLOATS to crclink_json_read.c for the float getter
 ```
 
 Call `crc16_xmodem_self_test()` once on the target (returns 0 on success) to catch a compiler or width mismatch before trusting the output.

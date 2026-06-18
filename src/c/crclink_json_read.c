@@ -231,23 +231,3 @@ int crclink_json_get_raw_n(const char *json, size_t len, const char *key, const 
 int crclink_json_get_raw(const char *json, const char *key, const char **start, int *out_len) {
     return crclink_json_get_raw_n(json, strlen(json), key, start, out_len);
 }
-
-#ifdef CRCLINK_JSON_FLOATS
-int crclink_json_get_float_n(const char *json, size_t len, const char *key, double *out) {
-    jsmntok_t toks[CRCLINK_JSON_MAX_TOKENS];
-    int vi = find_value_n(json, len, key, toks);
-    if (vi < 0 || toks[vi].type != JSMN_PRIMITIVE) {
-        return -1;
-    }
-    const char *s = json + toks[vi].start;
-    if (*s != '-' && (*s < '0' || *s > '9')) {
-        return -1;
-    }
-    *out = strtod(s, NULL);
-    return 0;
-}
-
-int crclink_json_get_float(const char *json, const char *key, double *out) {
-    return crclink_json_get_float_n(json, strlen(json), key, out);
-}
-#endif

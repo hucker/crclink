@@ -132,16 +132,6 @@ int crclink_json_int_add(crclink_json_t *j, const char *key, long value);
  */
 int crclink_json_bool_add(crclink_json_t *j, const char *key, int value);
 
-#ifdef CRCLINK_JSON_FLOATS
-/**
- * @brief Add a "key":value field for a double. Compiled only when
- *        CRCLINK_JSON_FLOATS is defined (pulls in snprintf float support).
- *        Formatted with "%g"; pass a finite value (JSON has no inf/nan).
- * @return 0, or -1 once the frame has overflowed.
- */
-int crclink_json_float_add(crclink_json_t *j, const char *key, double value);
-#endif
-
 /**
  * @brief Add a "key":[v0,...] field from a count-element int array.
  *
@@ -166,20 +156,10 @@ int crclink_json_bool_list_add(crclink_json_t *j, const char *key, const int *va
 int crclink_json_str_list_add(crclink_json_t *j, const char *key, const char *const *values,
                               size_t count);
 
-#ifdef CRCLINK_JSON_FLOATS
-/**
- * @brief Add a "key":[1.5,...] field from a count-element double array. Compiled
- *        only when CRCLINK_JSON_FLOATS is defined. @p count 0 yields [].
- * @return 0, or -1 once the frame has overflowed.
- */
-int crclink_json_float_list_add(crclink_json_t *j, const char *key, const double *values,
-                                size_t count);
-#endif
-
 /**
  * @brief Open a "key":[ ... ] array to fill element by element.
  *
- * Append elements with crclink_json_list_int / _bool / _str / _float (mix types
+ * Append elements with crclink_json_list_int / _bool / _str (mix types
  * freely for a polymorphic list), then close with crclink_json_list_close. Lists
  * do not nest via this API (one level); use the typed *_list_add for arrays you
  * already hold.
@@ -196,11 +176,6 @@ int crclink_json_list_bool(crclink_json_t *j, int value);
 
 /** @brief Append a JSON-escaped string element to the open list. @return 0, or -1 on overflow. */
 int crclink_json_list_str(crclink_json_t *j, const char *value);
-
-#ifdef CRCLINK_JSON_FLOATS
-/** @brief Append a double element to the open list (CRCLINK_JSON_FLOATS only). @return 0, or -1. */
-int crclink_json_list_float(crclink_json_t *j, double value);
-#endif
 
 /** @brief Close the open list (writes ] and the field separator). @return 0, or -1 on overflow. */
 int crclink_json_list_close(crclink_json_t *j);

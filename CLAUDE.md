@@ -67,6 +67,8 @@ CI (`.github/workflows/ci.yml`) runs both suites on every push and PR.
 
 The public surface is the framing functions (`encode_json_frame`, `decode_json_frame`, `encode_text_frame`, `decode_text_frame`), the error types, and the CLI. While pre-1.0 (0.1.0, unreleased) a clean breaking change is acceptable. Once released, prefer additive changes and don't remove or rename a public function or CLI flag without a deprecation cycle.
 
+JSON payloads are integers-only: `encode_json_frame` rejects float values (recursively) and the C builder has no float adder, because a float serializes to different bytes in Python (`json.dumps`) and C (`snprintf`) and would break the cross-end CRC. Carry fractional values as scaled integers (millivolts not volts, etc.); see the Numbers section in `specs.md`.
+
 ## Docs and prose
 
 - README.md is a short overview; `specs.md` is the spec; reference notes go in `docs/`.

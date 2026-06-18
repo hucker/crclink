@@ -41,6 +41,12 @@ Also support text line framing where CRC is appended to message text as either:
 
 CRC covers body bytes only (before final separator space).
 
+### Numbers
+
+JSON numbers are integers only. Floats are not supported: a float serializes to bytes that the Python host and the C firmware format differently (`0.1` vs `0.100000`, `1e10` vs `10000000000.0`), so the CRC would not match across the two ends. The Python encoder rejects a float value with `FrameFormatError`, and the C builder has no float adder.
+
+Send a fractional quantity as a scaled integer with a unit both ends agree on: millivolts not volts, cents not dollars, tenths of a degree not degrees. The scale is a contract the CRC does not protect (it covers the integer bytes, not their meaning), so document the unit per field.
+
 ## CRC Algorithm
 
 Use CRC-16/XMODEM (crc16-xmodem):

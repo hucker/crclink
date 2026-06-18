@@ -18,6 +18,7 @@ Both sides compute CRC-16/XMODEM over the same coverage, so a frame built on one
 - JSON line framing with a trailing crc key.
 - Text line framing with trailing CRC suffix.
 - CRC-16/XMODEM validation.
+- Integer payloads only: floats are rejected so the bytes (and the CRC) match across the host and the device. Carry fractional values as scaled integers, e.g. millivolts not volts, cents not dollars.
 - Matching Python (host) and C (device) implementations.
 
 ## CRC engine

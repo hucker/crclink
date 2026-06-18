@@ -2,8 +2,7 @@
  *
  * The input frames are real frames from crclink's Python encoder
  * (crclink.encode_json_frame), so this is the read side of the round trip:
- * Python encodes, C reads the fields back. Built with -DCRCLINK_JSON_FLOATS so
- * the float getter is exercised.
+ * Python encodes, C reads the fields back.
  */
 #include "unity.h"
 
@@ -15,7 +14,6 @@
 static const char *CMD = "{\"cmd\":\"do something\",\"crc\":\"21f9\"}";
 static const char *INTS = "{\"n\":12,\"neg\":-5,\"crc\":\"5a8a\"}";
 static const char *BOOLS = "{\"flag\":true,\"off\":false,\"crc\":\"6cb9\"}";
-static const char *FLOAT = "{\"x\":3.14,\"crc\":\"e5d1\"}";
 static const char *ESC = "{\"q\":\"a\\\"b\\\\c\",\"crc\":\"f0fb\"}";
 static const char *TAB = "{\"t\":\"\\t\",\"crc\":\"aaf8\"}";
 static const char *EMPTY = "{\"crc\":\"cffc\"}";
@@ -44,12 +42,6 @@ void test_get_bool(void) {
     TEST_ASSERT_EQUAL_INT(1, b);
     TEST_ASSERT_EQUAL_INT(0, crclink_json_get_bool(BOOLS, "off", &b));
     TEST_ASSERT_EQUAL_INT(0, b);
-}
-
-void test_get_float(void) {
-    double x = 0.0;
-    TEST_ASSERT_EQUAL_INT(0, crclink_json_get_float(FLOAT, "x", &x));
-    TEST_ASSERT_TRUE(x > 3.139 && x < 3.141); /* 3.14 without Unity double config */
 }
 
 void test_unescapes_quote_and_backslash(void) {
@@ -171,7 +163,6 @@ int main(void) {
     RUN_TEST(test_get_str);
     RUN_TEST(test_get_int);
     RUN_TEST(test_get_bool);
-    RUN_TEST(test_get_float);
     RUN_TEST(test_unescapes_quote_and_backslash);
     RUN_TEST(test_unescapes_short_escape);
     RUN_TEST(test_missing_key_returns_negative);
