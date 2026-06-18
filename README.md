@@ -18,8 +18,19 @@ Both sides compute CRC-16/XMODEM over the same coverage, so a frame built on one
 - JSON line framing with a trailing crc key.
 - Text line framing with trailing CRC suffix.
 - CRC-16/XMODEM validation.
-- Integer payloads only: floats are rejected so the bytes (and the CRC) match across the host and the device. Carry fractional values as scaled integers, e.g. millivolts not volts, cents not dollars.
+- Integer payloads: fractional values ride as scaled integers, so the bytes (and the CRC) match byte-for-byte on the host and the device.
 - Matching Python (host) and C (device) implementations.
+
+## Scaled integers
+
+A frame carries integers, strings, bools, and null. A fractional value rides as an integer with a unit both ends agree on, which keeps the bytes (and so the CRC) identical on the host and the device. For a temperature in 0.1° steps, send tenths of a degree: 23.4° goes on the wire as `234`, and the receiver divides by 10.
+
+```bash
+crclink encode-json '{"temp_dC":234}'   # 23.4 °C in 0.1° steps
+# -> {"temp_dC":234,"crc":"03bf"}
+```
+
+The same idea covers millivolts not volts, cents not dollars, microseconds not seconds. The scale is a convention the two ends share; the CRC protects the integer bytes, not their meaning, so document the unit per field.
 
 ## CRC engine
 

@@ -93,14 +93,14 @@ crclink_json_get_str(line, "cmd", small, sizeof small); // -> -1, value would ov
 
 A failed `crclink_json_verify` means a corrupted or truncated frame: drop it, or ask the host to resend.
 
-Filling a C struct from a richer command, `{"cmd":"set_pid","ch":1,"en":true,"sp_mv":3300,"crc":"ba4e"}` (the setpoint rides as a scaled integer, millivolts, because floats are not supported):
+Filling a C struct from a richer command, `{"cmd":"set_pid","ch":1,"en":true,"sp_mv":3300,"crc":"ba4e"}` (the setpoint rides as a scaled integer, millivolts):
 
 ```c
 typedef struct {
     char name[16];
     long channel;
     int  enabled;       // bool
-    long setpoint_mv;   // millivolts (scaled integer; no float on the wire)
+    long setpoint_mv;   // millivolts (scaled integer)
 } command_t;
 
 int parse_command(const char *line, command_t *out) {
