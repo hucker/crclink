@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0 (2026-06-18)
+
+- **Breaking: integers-only JSON payloads.** crclink no longer supports floats: a float serializes to different bytes in Python (`json.dumps`) and C (`snprintf`), so a frame carrying one would not verify across the host and the device. `encode_json_frame` now raises `FrameFormatError` on any float value (including nested ones), and the C side drops the float adders, `crclink_json_get_float`, and the `CRCLINK_JSON_FLOATS` flag. Carry a fractional value as a scaled integer with a unit both ends agree on: millivolts not volts, cents not dollars, tenths of a degree not degrees (see the README's "Scaled integers" section). Booleans and null are unaffected.
+- New `crclink --version`, which prints the installed package version.
+
 ## v0.2.0 (2026-06-17)
 
 - **No runtime dependencies.** crclink no longer imports crcglot at run time; it vendors a crcglot-generated crc16-xmodem module instead ([src/crclink/crc16_xmodem.py](src/crclink/crc16_xmodem.py)), so installing the wheel pulls in nothing else. The CRC is still crcglot's verified output (regenerated, never hand-rolled), and the framing API and CLI are unchanged, so it is a drop-in upgrade from 0.1.0.
