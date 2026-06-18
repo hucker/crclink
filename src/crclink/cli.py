@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from collections.abc import Iterable, Sequence
+from importlib.metadata import version
 
 from .errors import CrclinkError
 from .frame import (
@@ -24,6 +25,11 @@ def build_parser() -> argparse.ArgumentParser:
         Configured top-level parser.
     """
     parser = argparse.ArgumentParser(prog="crclink", description="Encode/decode CRC-framed lines")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {version('crclink')}",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     encode_json = subparsers.add_parser("encode-json", help="Encode a JSON payload frame")

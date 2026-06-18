@@ -3,9 +3,28 @@
 from __future__ import annotations
 
 import json
+from importlib.metadata import version
+
+import pytest
 
 from crclink import encode_json_frame, encode_text_frame
 from crclink.cli import main
+
+
+class TestCliVersion:
+    """CLI --version flag."""
+
+    def test_version_flag_prints_package_version(self, capsys) -> None:
+        """`crclink --version` prints 'crclink <version>' and exits 0."""
+        # Act / Assert (argparse's version action prints, then exits)
+        with pytest.raises(SystemExit) as exc:
+            main(["--version"])
+        output = capsys.readouterr().out.strip()
+
+        # Assert
+        assert exc.value.code == 0, "--version should exit with code 0"
+        expected = f"crclink {version('crclink')}"
+        assert output == expected, "--version should print 'crclink <version>'"
 
 
 class TestCliJson:
